@@ -1,4 +1,4 @@
-# 
+# 测试模型API是否可用
 import os
 from openai import OpenAI
 
