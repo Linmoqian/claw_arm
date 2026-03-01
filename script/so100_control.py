@@ -46,8 +46,18 @@ def bar(pos, lo=0, hi=4095, width=20):
     filled = int(ratio * width)
     return f"[{'█' * filled}{'░' * (width - filled)}]"
 
+# ANSI 控制序列
+CURSOR_HOME = "\033[H"   # 光标移到左上角
+CLEAR_BELOW = "\033[J"   # 清除光标以下内容
+HIDE_CURSOR = "\033[?25l"
+SHOW_CURSOR = "\033[?25h"
+
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
+
+def refresh_screen(lines: list[str]):
+    """无闪烁刷新：光标归位 + 整帧输出 + 清除残余"""
+    print(CURSOR_HOME + "\n".join(lines) + CLEAR_BELOW, end="", flush=True)
 
 def pause(msg="按 Enter 继续..."):
     input(f"\n{DIM}{msg}{CLR}")
@@ -560,21 +570,27 @@ def mode_calibration(controller: SO100Controller):
     def display_loop():
         """显示循环"""
         nonlocal recording
+        print(HIDE_CURSOR, end="", flush=True)
+        clear_screen()
         while recording:
-            clear_screen()
-            print(f"\n{BOLD}  ● 实时记录中...{CLR}  (按 Enter 停止)\n")
-            print(f"  {'电机':<10} {'最小':>6} {'当前':>6} {'最大':>6} {'范围':>6}  可视化")
-            print(f"  {'─' * 62}")
-
+            lines = [
+                "",
+                f"{BOLD}  ● 实时记录中...{CLR}  (按 Enter 停止)",
+                "",
+                f"  {'电机':<10} {'最小':>6} {'当前':>6} {'最大':>6} {'范围':>6}  可视化",
+                f"  {'─' * 62}",
+            ]
             for motor_id in range(1, 7):
                 pos = controller.get_position(motor_id)
                 mn = ranges[motor_id][0]
                 mx = ranges[motor_id][1]
                 rng = mx - mn
-                print(f"  {controller.MOTOR_SHORT[motor_id]:<10} {mn:>6} {CYAN}{pos:>6}{CLR} {mx:>6} {rng:>6}  {bar(pos)}")
-
-            print(f"\n  {DIM}提示: 逐个移动每个关节通过完整运动范围{CLR}")
+                lines.append(f"  {controller.MOTOR_SHORT[motor_id]:<10} {mn:>6} {CYAN}{pos:>6}{CLR} {mx:>6} {rng:>6}  {bar(pos)}")
+            lines.append("")
+            lines.append(f"  {DIM}提示: 逐个移动每个关节通过完整运动范围{CLR}")
+            refresh_screen(lines)
             time.sleep(0.2)
+        print(SHOW_CURSOR, end="", flush=True)
 
     # 启动记录和显示线程
     record_thread = threading.Thread(target=record_loop)
@@ -640,17 +656,24 @@ def mode_monitor(controller: SO100Controller):
     print(ok(f"检测到 {len(found)}/{6} 个电机"))
     print(info("按 Ctrl+C 返回主菜单\n"))
 
+    print(HIDE_CURSOR, end="", flush=True)
+    clear_screen()
     try:
         while True:
-            clear_screen()
-            print(f"\n{BOLD}  ◉ 实时位置监控{CLR}  {DIM}(Ctrl+C 退出){CLR}\n")
-            print(f"  {'ID':<4} {'名称':<10} {'位置':>6}  {'可视化'}")
-            print(f"  {'─' * 50}")
+            lines = [
+                "",
+                f"{BOLD}  ◉ 实时位置监控{CLR}  {DIM}(Ctrl+C 退出){CLR}",
+                "",
+                f"  {'ID':<4} {'名称':<10} {'位置':>6}  {'可视化'}",
+                f"  {'─' * 50}",
+            ]
             for m in found:
                 pos = controller.get_position(m)
-                print(f"  {CYAN}{m:<4}{CLR} {controller.MOTOR_SHORT[m]:<10} {pos:>6}  {bar(pos)}")
+                lines.append(f"  {CYAN}{m:<4}{CLR} {controller.MOTOR_SHORT[m]:<10} {pos:>6}  {bar(pos)}")
+            refresh_screen(lines)
             time.sleep(0.15)
     except KeyboardInterrupt:
+        print(SHOW_CURSOR, end="", flush=True)
         print(f"\n{ok('已退出监控')}")
         pause()
 
@@ -670,20 +693,27 @@ def mode_freedrag(controller: SO100Controller):
     print(ok("扭矩已释放, 现在可以自由拖动各个关节"))
     print(info("按 Ctrl+C 退出并重新启用扭矩\n"))
 
+    print(HIDE_CURSOR, end="", flush=True)
+    clear_screen()
     try:
         while True:
-            clear_screen()
-            print(f"\n{BOLD}  ✋ 自由拖动模式{CLR}  {DIM}(Ctrl+C 退出){CLR}")
-            print(f"  {DIM}扭矩已释放 — 请用手移动机械臂各关节{CLR}\n")
-            print(f"  {'ID':<4} {'名称':<10} {'位置':>6}  {'可视化'}")
-            print(f"  {'─' * 50}")
+            lines = [
+                "",
+                f"{BOLD}  ✋ 自由拖动模式{CLR}  {DIM}(Ctrl+C 退出){CLR}",
+                f"  {DIM}扭矩已释放 — 请用手移动机械臂各关节{CLR}",
+                "",
+                f"  {'ID':<4} {'名称':<10} {'位置':>6}  {'可视化'}",
+                f"  {'─' * 50}",
+            ]
             for m in found:
                 pos = controller.get_position(m)
-                print(f"  {CYAN}{m:<4}{CLR} {controller.MOTOR_SHORT[m]:<10} {pos:>6}  {bar(pos)}")
-            print(f"\n  {DIM}提示: 您可以同时拖动多个关节, 位置会实时更新{CLR}")
+                lines.append(f"  {CYAN}{m:<4}{CLR} {controller.MOTOR_SHORT[m]:<10} {pos:>6}  {bar(pos)}")
+            lines.append("")
+            lines.append(f"  {DIM}提示: 您可以同时拖动多个关节, 位置会实时更新{CLR}")
+            refresh_screen(lines)
             time.sleep(0.15)
     except KeyboardInterrupt:
-        pass
+        print(SHOW_CURSOR, end="", flush=True)
 
     # 退出时重新启用扭矩
     controller.enable_all()
