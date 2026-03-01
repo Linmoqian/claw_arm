@@ -5,11 +5,15 @@ SO100 机械臂底层控制（综合版）
 直接使用 scservo_sdk 控制，包含电机检测、交互式控制、示教录制回放、校准等模式
 """
 
-from scservo_sdk import PortHandler, PacketHandler
 import time
 import threading
 import json
 import os
+import sys
+
+# 将项目根目录加入模块搜索路径，使用本地 SDK
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from SDK import PortHandler, PacketHandler
 
 # ───────── ANSI 颜色 ─────────
 CLR  = "\033[0m"
