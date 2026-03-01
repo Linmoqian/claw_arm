@@ -2,7 +2,7 @@
 
 ## 概述
 
-`arm-control` 是 OpenClaw Agent 的核心技能之一，负责控制 Galaxea R1 Lite 双臂机器人执行物理操作。
+`arm-control` 是 OpenClaw Agent 的核心技能，负责通过 LeRobot 框架控制 SO100 机械臂。
 
 ## 系统架构
 
@@ -15,224 +15,257 @@ OpenClaw Agent (任务理解与决策)
     ▼
 arm-control skill (本技能)
     │
-    ├── SDK 模式 ──► 飞特舵机 UART 串口 ──► 机械臂
+    ▼
+SO100Controller (封装层)
     │
-    └── ROS2 模式 ──► ROS2 话题/服务 ──► 机械臂驱动节点 ──► 机械臂
+    ▼
+LeRobot SO100Follower API
+    │
+    ▼
+USB 串口 → 飞特舵机控制板 → SO100 机械臂
 ```
 
 ## 机器人规格
 
 | 项目 | 参数 |
 |------|------|
-| 机型 | Galaxea R1 Lite |
-| 臂数 | 2（左臂 + 右臂） |
-| 自由度 | 每臂 6 关节 + 1 夹爪，共 14 维 |
-| 舵机 | 飞特 ST-3215-C001 (7.4V) |
-| 齿轮比 | 1:345 |
-| 通信 | UART 串口，波特率 1000000 |
-| 电源 | 5.5mm×2.1mm DC 5V 4A |
+| 机型 | SO100 |
+| 自由度 | 6（5 旋转关节 + 1 夹爪） |
+| 电机 | 飞特舵机 × 6 |
+| 电源 | 12V DC 适配器 |
+| 通信 | USB 串口 (默认 COM7) |
+| 控制框架 | LeRobot (lerobot.robots.so_follower) |
+| 负载限制 | 约 500g |
 
-## 状态空间
+## 关节说明
 
-机械臂状态为 14 维向量：
+| 电机 ID | 关节名称 | API 键名 | 范围 | 描述 |
+|---------|----------|----------|------|------|
+| 1 | shoulder_pan | shoulder_pan.pos | -100 ~ 100 | 底部旋转 |
+| 2 | shoulder_lift | shoulder_lift.pos | -100 ~ 100 | 大臂升降 |
+| 3 | elbow_flex | elbow_flex.pos | -100 ~ 100 | 小臂弯曲 |
+| 4 | wrist_flex | wrist_flex.pos | -100 ~ 100 | 手腕俯仰 |
+| 5 | wrist_roll | wrist_roll.pos | -100 ~ 100 | 手腕旋转 |
+| 6 | gripper | gripper.pos | 0 ~ 100 | 夹爪开合 |
 
-| 维度 | 名称 | 类型 | 范围 |
-|------|------|------|------|
-| 0-5 | 左臂关节 1-6 | float32 | [-π, π] rad |
-| 6 | 左臂夹爪 | float32 | [0.0, 1.0] |
-| 7-12 | 右臂关节 1-6 | float32 | [-π, π] rad |
-| 13 | 右臂夹爪 | float32 | [0.0, 1.0] |
+**注意**：位置值不是弧度，而是归一化的位置单位 (-100 到 100)。
 
-## 控制模式
+## LeRobot API 说明
 
-### 1. SDK 直连模式
+### 配置类：SO100FollowerConfig
 
-直接通过 UART 串口与飞特舵机通信，无需 ROS2 环境。
+```python
+from lerobot.robots.so_follower import SO100Follower, SO100FollowerConfig
 
-**适用场景**：
-- 快速原型验证
-- 无 ROS2 环境的部署
-- 低延迟控制需求
+config = SO100FollowerConfig(
+    port="COM7",                        # 串口端口（必需）
+    id="my_so100_arm",                  # 机械臂唯一标识符（必需）
+    disable_torque_on_disconnect=True,   # 断开时禁用扭矩
+    max_relative_target=None,            # 最大相对移动限制（安全限制）
+)
+```
 
-**接线说明**：
-- 使用 USB-TTL 转接器连接 PC 与舵机控制板
-- 串口默认端口：Linux `/dev/ttyUSB0`，Windows `COM3`
-- 波特率：1000000 (1Mbps)
+### 核心方法
 
-**舵机 ID 分配**：
-- 左臂关节 1-6：ID 1-6
-- 左臂夹爪：ID 7
-- 右臂关节 1-6：ID 8-13
-- 右臂夹爪：ID 14
+| 方法 | 说明 | 返回 |
+|------|------|------|
+| `connect(calibrate=False)` | 连接机械臂 | 无 |
+| `disconnect()` | 断开连接（自动禁用扭矩） | 无 |
+| `get_observation()` | 读取当前关节位置 | `dict` |
+| `send_action(action)` | 发送目标位置 | `dict` |
 
-### 2. ROS2 模式
+### 观测数据格式
 
-通过 ROS2 话题发布控制指令，需要机械臂 ROS2 驱动节点已启动。
+```python
+observation = robot.get_observation()
+# 返回:
+{
+    'shoulder_pan.pos': -7.54,    # -100 ~ 100
+    'shoulder_lift.pos': 96.69,
+    'elbow_flex.pos': -97.40,
+    'wrist_flex.pos': -13.28,
+    'wrist_roll.pos': 0.07,
+    'gripper.pos': 3.38           # 0 ~ 100
+}
+```
 
-**适用场景**：
-- 完整的 ROS2 机器人系统
-- 需要与其他 ROS2 节点协作
-- 使用 MoveIt2 等运动规划
+### 动作格式
 
-**ROS2 话题**：
-
-| 话题 | 类型 | 方向 | 说明 |
-|------|------|------|------|
-| `/joint_states` | `sensor_msgs/JointState` | 订阅 | 关节状态反馈 |
-| `/arm_controller/joint_trajectory` | `trajectory_msgs/JointTrajectory` | 发布 | 关节轨迹指令 |
-| `/left_gripper_controller/command` | `std_msgs/Float64` | 发布 | 左夹爪指令 |
-| `/right_gripper_controller/command` | `std_msgs/Float64` | 发布 | 右夹爪指令 |
+```python
+action = {
+    'shoulder_pan.pos': 10.0,
+    'shoulder_lift.pos': 10.0,
+    'elbow_flex.pos': 10.0,
+    'wrist_flex.pos': 10.0,
+    'wrist_roll.pos': 10.0,
+    'gripper.pos': 50.0
+}
+robot.send_action(action)
+```
 
 ## 命令行使用
 
 ### 基本命令
 
 ```bash
-# 读取机械臂状态
-python main.py --mode sdk --port COM3 --action status
+# 查看所有关节信息
+python main.py --action list_joints
+
+# 读取当前状态
+python main.py --port COM7 --action status
 
 # 回到初始位置
-python main.py --mode sdk --port /dev/ttyUSB0 --action home
+python main.py --port COM7 --action home
 
 # 紧急停止
-python main.py --mode sdk --action stop
+python main.py --port COM7 --action stop
 ```
 
-### 关节控制
+### 单关节控制
 
 ```bash
-# 设置左臂 6 个关节位置（弧度）
-python main.py --mode sdk --action move --arm left --joints 0.1 0.2 0.3 0.0 0.0 0.0
+# 读取单个关节
+python main.py --port COM7 --action move --joint shoulder_pan
 
-# 设置双臂 12 个关节位置
-python main.py --mode sdk --action move --arm both --joints 0.1 0.2 0.3 0.0 0.0 0.0 -0.1 -0.2 -0.3 0.0 0.0 0.0
+# 设置单个关节
+python main.py --port COM7 --action move --joint shoulder_pan --value 30
+
+# 设置肘部角度
+python main.py --port COM7 --action move --joint elbow_flex --value -45
+```
+
+### 全关节控制
+
+```bash
+# 设置全部 6 个关节 (shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper)
+python main.py --port COM7 --action move_all --values 0 30 -45 -20 0 50
 ```
 
 ### 夹爪控制
 
 ```bash
-# 打开左臂夹爪
-python main.py --mode sdk --action gripper --arm left --gripper-value 1.0
+# 打开夹爪
+python main.py --port COM7 --action gripper --value 80
 
-# 关闭右臂夹爪
-python main.py --mode sdk --action gripper --arm right --gripper-value 0.0
+# 关闭夹爪
+python main.py --port COM7 --action gripper --value 0
 ```
 
 ### 任务执行
 
 ```bash
-# 倒水任务
-python main.py --mode sdk --action pour_water
+# 倒水
+python main.py --port COM7 --action pour_water
 
-# 抓取物体（配合预设位置）
-python main.py --mode sdk --action pick --arm left --joints 0.5 -0.3 1.0 0.0 0.5 0.0
+# 抓取
+python main.py --port COM7 --action pick
 
-# 从 Lerobot 轨迹文件执行
-python main.py --mode sdk --action trajectory --trajectory-file data/chunk-000/episode_000000.parquet
+# 放置
+python main.py --port COM7 --action place
 
-# 从 numpy 文件执行轨迹
-python main.py --mode sdk --action trajectory --trajectory-file trajectory.npy
+# 轨迹回放
+python main.py --port COM7 --action trajectory --file data.parquet --fps 10
+
+# JSON 动作序列
+python main.py --port COM7 --action sequence --file actions.json
 ```
 
 ## Python API 使用
 
 ```python
-from main import create_controller, TaskExecutor, ArmSide
-import numpy as np
+from main import create_controller, JOINT_NAMES
 
-# 创建 SDK 控制器
-ctrl = create_controller(mode="sdk", port="COM3")
+# 创建控制器
+ctrl = create_controller(port="COM7", robot_id="my_so100_arm")
 ctrl.connect()
 
 # 读取状态
 state = ctrl.get_state()
-print(f"左臂关节: {state.left_joints}")
-print(f"右臂关节: {state.right_joints}")
+for name, js in state.joints.items():
+    print(f"  {name}: {js.position:.2f}")
 
-# 设置关节位置
-ctrl.set_joint_positions([0.1, 0.2, 0.3, 0.0, 0.0, 0.0], arm=ArmSide.LEFT)
+# 设置单个关节
+ctrl.set_joint("shoulder_pan", 30.0)
+ctrl.set_joint("elbow_flex", -45.0)
 
-# 控制夹爪
-ctrl.set_gripper(1.0, arm=ArmSide.LEFT)   # 打开
-ctrl.set_gripper(0.0, arm=ArmSide.LEFT)   # 关闭
+# 设置多个关节
+ctrl.set_joints({"shoulder_pan": 10, "elbow_flex": -30, "gripper": 50})
+
+# 设置全部关节
+ctrl.set_all_joints([0, 30, -45, -20, 0, 50])
+
+# 夹爪
+ctrl.open_gripper(80)   # 80% 打开
+ctrl.close_gripper()     # 完全关闭
 
 # 回到初始位置
 ctrl.go_home()
 
-# 执行轨迹
-trajectory = np.random.randn(100, 14).astype(np.float32) * 0.1  # 示例
-ctrl.execute_trajectory(trajectory, fps=30)
+# 移动到指定位置并等待
+ctrl.move_to({"shoulder_pan.pos": 20, "elbow_flex.pos": -30}, wait=2.0)
 
-# 使用任务执行器
-executor = TaskExecutor(ctrl)
-executor.pour_water()
+# 动作序列
+actions = [
+    {"shoulder_pan.pos": 30, "gripper.pos": 80},
+    {"shoulder_pan.pos": -30, "gripper.pos": 10},
+    {"shoulder_pan.pos": 0, "gripper.pos": 50},
+]
+ctrl.execute_sequence(actions, interval=2.0)
+
+# 轨迹回放
+import numpy as np
+traj = np.random.uniform(-30, 30, (100, 6))
+ctrl.execute_trajectory(traj, fps=10)
+
+# 高级任务
+ctrl.pour_water()
+ctrl.pick_object(
+    pre_grasp={"shoulder_lift.pos": 30, "elbow_flex.pos": -45, "gripper.pos": 80},
+    grasp={"shoulder_lift.pos": 10, "elbow_flex.pos": -80, "gripper.pos": 80},
+)
+ctrl.place_object(place_pos={"shoulder_pan.pos": 40, "gripper.pos": 80})
+
+# 从文件执行
+ctrl.load_and_execute_trajectory("data.parquet", fps=10)
 
 # 断开连接
 ctrl.disconnect()
 ```
 
-## 与 Lerobot 集成
+## 首次使用项
 
-本技能可直接执行 Lerobot 策略模型生成的动作轨迹。
+### 1. 设置电机 ID
 
-### 数据格式
-
-Lerobot 数据集使用 parquet 格式存储，其中 `action` 列包含 14 维动作向量：
-
-```
-[left_joint_1, ..., left_joint_6, left_gripper,
- right_joint_1, ..., right_joint_6, right_gripper]
+每次只连接一个电机，运行：
+```bash
+lerobot-setup-motors --robot.type=so100_follower --robot.port=COM7 --robot.id=my_so100_arm
 ```
 
-### 执行流程
+### 2. 校准
 
+将机械臂移动到中间位置，运行：
+```bash
+lerobot-calibrate --robot.type=so100_follower --robot.port=COM7 --robot.id=my_so100_arm
 ```
-Lerobot 策略模型
-    │
-    ▼
-生成 action 序列 (T × 14)
-    │
-    ▼
-arm-control.execute_trajectory()
-    │
-    ▼
-逐帧发送关节指令 @ 30 FPS
+
+校准数据保存在 `~/.cache/huggingface/lerobot/calibration/robots/so_follower/my_so100_arm.json`
+
+### 3. 查找串口
+
+```bash
+# Python 方式
+python -c "import serial.tools.list_ports; [print(p.device, p.description) for p in serial.tools.list_ports.comports()]"
+
+# LeRobot 方式
+lerobot-find-port
 ```
 
 ## 安全注意事项
 
-1. **首次测试**：务必先在无负载条件下测试，确认关节运动方向和范围正确
-2. **紧急停止**：按 `Ctrl+C` 或执行 `--action stop` 可立即停止所有舵机
-3. **电源**：确保供电稳定，多关节同时运动时电流较大
-4. **标定**：实际部署前需根据具体机械臂完成舵机 ID 和零位标定
-5. **速度限制**：避免过大的关节跳变，建议使用轨迹模式平滑运动
-
-## 飞特舵机通信协议参考
-
-### 数据帧格式
-
-```
-[0xFF] [0xFF] [ID] [Length] [Instruction] [Param1] ... [Checksum]
-```
-
-### 主要指令
-
-| 指令码 | 名称 | 说明 |
-|--------|------|------|
-| 0x01 | PING | 查询舵机是否在线 |
-| 0x02 | READ | 读取寄存器 |
-| 0x03 | WRITE | 写入寄存器 |
-| 0x83 | SYNC_WRITE | 同步写入多个舵机 |
-
-### 关键寄存器地址
-
-| 地址 | 长度 | 说明 |
-|------|------|------|
-| 0x21 | 1 | 工作模式（0=位置, 1=速度, 2=PWM） |
-| 0x28 | 1 | 扭矩使能（0=关闭, 1=打开） |
-| 0x2A | 2 | 目标位置（0-4095） |
-| 0x2C | 2 | 运行时间 |
-| 0x2E | 2 | 运行速度 |
-| 0x38 | 2 | 当前位置（只读） |
-| 0x3A | 2 | 当前速度（只读） |
-| 0x3C | 2 | 当前负载（只读） |
+1. **安全距离**：确保机械臂周围至少 1 米半径无障碍
+2. **紧急停止**：`Ctrl+C` 或 `--action stop` 立即禁用所有扭矩
+3. **缓慢测试**：使用较小的值（如 ±10）进行首次测试
+4. **移动限制**：设置 `max_relative_target=10` 限制单次最大移动幅度
+5. **电源安全**：使用 12V DC 适配器，勿超载
+6. **夹爪安全**：注意不要夹到手指
+7. **负载限制**：不超过 500g

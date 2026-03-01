@@ -85,13 +85,11 @@
 | 通义千问视觉 API | 开放词汇，任意物体描述 | 否（云端推理） |
 | OpenCV 颜色/形状 | 简单物体，无需模型 | 否 |
 
-### 摄像头配置（Galaxea R1 Lite）
+### 摄像头配置
 
 | 摄像头 | 分辨率 | 用途 |
 |--------|--------|------|
-| cam_high_rgb | 1280×720 | 全局俯视，场景理解 |
-| cam_left_wrist_rgb | 1280×720 | 左臂末端精细操作 |
-| cam_right_wrist_rgb | 1280×720 | 右臂末端精细操作 |
+| USB 摄像头 (high) | 1280×720 | 全局俯视，场景理解 |
 
 ---
 
@@ -105,9 +103,9 @@
 | 参数名 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | target | str | 必填 | 要抓取的目标描述，如 "水杯"、"红色方块" |
-| camera | str | "high" | 使用的摄像头："high"、"left_wrist"、"right_wrist" |
+| camera | str | "high" | 使用的摄像头："high" |
 | detector | str | "yolo" | 检测后端："yolo"、"qwen_vl"、"color" |
-| arm | str | "left" | 执行抓取的手臂："left"、"right" |
+| arm_port | str | "COM7" | SO100 机械臂串口端口 |
 | confidence | float | 0.5 | 检测置信度阈值 (0.0-1.0) |
 | grasp_height | float | 0.05 | 抓取接近高度 (米)，物体上方多高开始下降 |
 | auto_execute | bool | true | 检测到后是否自动执行抓取 |
@@ -123,10 +121,10 @@
 
 ## 权限要求
 
-- 摄像头访问权限（USB 摄像头或 CSI 接口）
+- 摄像头访问权限（USB 摄像头）
 - 网络访问（如使用通义千问视觉 API）
-- 串口 / ROS2（调用 arm-control 时需要）
-- Python 3.8+
+- USB 串口访问（调用 arm-control 时需要）
+- Python 3.10+
 
 ## 依赖
 
@@ -139,7 +137,7 @@
 - openai 或 dashscope（通义千问视觉 API）
 
 **抓取执行**：
-- arm-control 技能（同级 skill，用于实际控制机械臂）
+- arm-control 技能（同级 skill，基于 LeRobot SO100Follower 控制 SO100 机械臂）
 
 ---
 

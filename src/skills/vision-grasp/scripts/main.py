@@ -718,70 +718,76 @@ class GraspPlanner:
 
     def _inverse_kinematics(self, pose: Pose3D) -> Optional[List[float]]:
         """
-        逆运动学求解
+        逆运动学求解（简化几何解法）
+
+        输出格式：SO100 位置值（-100 ~ 100），与 arm-control 技能
+        的 send_action 接口直接兼容。
 
         注意：这里提供一个简化的几何解法框架。
-        实际使用中应替换为：
-          - 基于 DH 参数的解析解
-          - 或使用 ikpy / PyKDL / MoveIt2 等库
+        实际使用中应替换为基于精确 DH 参数的求解器。
 
         返回:
-            6 个关节角度 (弧度)，无解或超限返回 None
+            5 个关节位置值 [shoulder_pan, shoulder_lift, elbow_flex,
+            wrist_flex, wrist_roll]，无解返回 None
+            （gripper 由抓取流程单独控制，不含在 IK 输出中）
         """
-        # 逐关节限位信息（与 arm-control JOINT_REGISTRY 保持一致）
-        # 格式: (name, min_rad, max_rad)
+        # SO100 关节限位（与 arm-control JOINT_REGISTRY 一致）
+        # 格式: (name, min_pos, max_pos)
         JOINT_LIMITS = [
-            ("joint_1_base_rotation", -3.1416, 3.1416),
-            ("joint_2_shoulder",      -2.0944, 2.0944),
-            ("joint_3_elbow",         -2.6180, 2.6180),
-            ("joint_4_wrist_pitch",   -1.7453, 1.7453),
-            ("joint_5_wrist_roll",    -3.1416, 3.1416),
-            ("joint_6_wrist_yaw",     -3.1416, 3.1416),
+            ("shoulder_pan",  -100.0, 100.0),
+            ("shoulder_lift", -100.0, 100.0),
+            ("elbow_flex",    -100.0, 100.0),
+            ("wrist_flex",    -100.0, 100.0),
+            ("wrist_roll",    -100.0, 100.0),
         ]
 
         try:
-            target = pose.to_array()[:3]  # [x, y, z]
+            target = pose.to_array()[:3]  # [x, y, z] 米
 
-            # --- 简化的 6-DOF 逆运动学占位实现 ---
-            # 实际项目中需要替换为精确的 IK 求解器
+            # --- 简化 5-DOF IK（SO100 为 5 旋转 + 1 夹爪）---
+            # 将空间坐标映射到 SO100 的 -100~100 位置范围
+            # 实际项目中需替换为精确 IK
 
-            # 计算基座旋转角
-            q1 = math.atan2(target[1], target[0])
+            # 近似工作空间半径 (米)
+            WORKSPACE_RADIUS = 0.3
 
-            # 计算到达距离
+            # 1. 底座旋转: atan2 映射到 -100~100
+            angle_base = math.atan2(target[1], target[0])
+            shoulder_pan = (angle_base / math.pi) * 100.0
+
+            # 2. 大臂升降: 由高度决定
+            height_ratio = target[2] / WORKSPACE_RADIUS
+            shoulder_lift = max(-1.0, min(1.0, height_ratio)) * 100.0
+
+            # 3. 小臂弯曲: 由水平距离决定
             reach = math.sqrt(target[0] ** 2 + target[1] ** 2)
+            reach_ratio = reach / WORKSPACE_RADIUS
+            elbow_flex = -max(0.0, min(1.0, reach_ratio)) * 100.0
 
-            # 简化的肘部角度（假设 2 连杆，各 0.2m）
-            L1, L2 = 0.2, 0.2
-            d = math.sqrt(reach ** 2 + target[2] ** 2)
-            d = min(d, L1 + L2 - 0.001)  # 限制在工作空间内
+            # 4. 手腕俯仰: 由末端俯仰目标决定
+            wrist_flex = 0.0
+            if pose.pitch != 0:
+                wrist_flex = (pose.pitch / math.pi) * 100.0
 
-            cos_q3 = (d ** 2 - L1 ** 2 - L2 ** 2) / (2 * L1 * L2)
-            cos_q3 = max(-1.0, min(1.0, cos_q3))
-            q3 = math.acos(cos_q3)
+            # 5. 手腕旋转: 由末端偏航目标决定
+            wrist_roll = 0.0
+            if pose.yaw != 0:
+                wrist_roll = (pose.yaw / math.pi) * 100.0
 
-            alpha = math.atan2(target[2], reach)
-            beta = math.atan2(L2 * math.sin(q3), L1 + L2 * math.cos(q3))
-            q2 = alpha - beta
-
-            # 腕部关节（简化为保持末端朝下）
-            q4 = 0.0
-            q5 = pose.pitch - q2 - q3 if pose.pitch != 0 else 0.0
-            q6 = pose.yaw if pose.yaw != 0 else 0.0
-
-            joints = [q1, q2, q3, q4, q5, q6]
+            joints = [shoulder_pan, shoulder_lift, elbow_flex,
+                      wrist_flex, wrist_roll]
 
             # ---- 逐关节限位校验 ----
             for i, (name, lo, hi) in enumerate(JOINT_LIMITS):
                 if joints[i] < lo or joints[i] > hi:
                     logger.warning(
-                        f"IK 关节 {name} 超限: {joints[i]:.4f} rad "
-                        f"不在 [{lo:.4f}, {hi:.4f}] 范围内，自动截断"
+                        f"IK 关节 {name} 超限: {joints[i]:.2f} "
+                        f"不在 [{lo}, {hi}] 范围内，已裁剪"
                     )
                     joints[i] = max(lo, min(hi, joints[i]))
 
             logger.debug(
-                f"IK 求解结果 (已校验限位): {[round(j, 3) for j in joints]}"
+                f"IK 求解结果 (SO100 位置值): {[round(j, 2) for j in joints]}"
             )
             return joints
 
@@ -911,15 +917,14 @@ class VisionGraspPipeline:
             self.camera.close()
 
     def run(self, target: str, auto_execute: bool = True,
-            arm_mode: str = "sdk", arm_port: str = "/dev/ttyUSB0") -> Optional[GraspPlan]:
+            arm_port: str = "COM7") -> Optional[GraspPlan]:
         """
         执行完整的视觉定位抓取流程
 
         参数:
             target: 目标物体描述，如 "水杯"、"红色方块"
             auto_execute: 检测到后是否自动执行抓取
-            arm_mode: arm-control 模式 ("sdk" 或 "ros2")
-            arm_port: 串口端口 (仅 SDK 模式)
+            arm_port: SO100 机械臂串口端口 (默认 COM7)
 
         返回:
             GraspPlan 抓取规划结果
@@ -954,14 +959,13 @@ class VisionGraspPipeline:
 
         # ---- 步骤 3: 执行抓取 ----
         if auto_execute:
-            self._execute_grasp(plan, arm_mode, arm_port)
+            self._execute_grasp(plan, arm_port)
 
         return plan
 
-    def _execute_grasp(self, plan: GraspPlan,
-                       arm_mode: str, arm_port: str) -> bool:
+    def _execute_grasp(self, plan: GraspPlan, arm_port: str) -> bool:
         """
-        调用 arm-control 执行抓取动作
+        调用 arm-control 的 SO100Controller 执行抓取动作
 
         流程:
           1. 打开夹爪
@@ -976,44 +980,60 @@ class VisionGraspPipeline:
             # 动态导入 arm-control 技能
             arm_control_path = Path(__file__).parent.parent.parent / "arm-control" / "scripts"
             sys.path.insert(0, str(arm_control_path))
-            from main import create_controller, ArmSide
+            from main import create_controller
 
             # 创建并连接控制器
-            ctrl = create_controller(mode=arm_mode, port=arm_port)
+            ctrl = create_controller(port=arm_port)
             if not ctrl.connect():
-                logger.error("机械臂连接失败")
+                logger.error("SO100 机械臂连接失败")
                 return False
 
-            arm_side = ArmSide(self.arm)
-
             try:
+                # IK 输出是 5 个关节值 [shoulder_pan, shoulder_lift,
+                # elbow_flex, wrist_flex, wrist_roll]
+                joint_names = [
+                    "shoulder_pan", "shoulder_lift", "elbow_flex",
+                    "wrist_flex", "wrist_roll",
+                ]
+
+                def _joints_to_action(angles: List[float]) -> Dict[str, float]:
+                    """将 IK 关节列表转为 SO100 动作字典"""
+                    action = {}
+                    for i, name in enumerate(joint_names):
+                        if i < len(angles):
+                            action[f"{name}.pos"] = angles[i]
+                    return action
+
                 # 步骤 1: 打开夹爪
                 logger.info("[1/5] 打开夹爪")
-                ctrl.set_gripper(1.0, arm=arm_side)
+                ctrl.open_gripper(80.0)
                 time.sleep(1.0)
 
                 # 步骤 2: 移动到预抓取位置
                 if plan.joint_angles_pre:
                     logger.info("[2/5] 移动到预抓取位置")
-                    ctrl.set_joint_positions(plan.joint_angles_pre, arm=arm_side)
-                    time.sleep(2.0)
+                    action = _joints_to_action(plan.joint_angles_pre)
+                    action["gripper.pos"] = 80.0
+                    ctrl.move_to(action, wait=2.0)
 
                 # 步骤 3: 下降到抓取位置
                 if plan.joint_angles_grasp:
                     logger.info("[3/5] 下降到抓取位置")
-                    ctrl.set_joint_positions(plan.joint_angles_grasp, arm=arm_side)
-                    time.sleep(1.5)
+                    action = _joints_to_action(plan.joint_angles_grasp)
+                    action["gripper.pos"] = 80.0
+                    ctrl.move_to(action, wait=1.5)
 
                 # 步骤 4: 关闭夹爪
                 logger.info("[4/5] 关闭夹爪")
-                ctrl.set_gripper(0.0, arm=arm_side)
+                ctrl.close_gripper(5.0)
                 time.sleep(1.0)
 
                 # 步骤 5: 抬起（回到预抓取位置）
                 if plan.joint_angles_pre:
                     logger.info("[5/5] 抬起物体")
-                    ctrl.set_joint_positions(plan.joint_angles_pre, arm=arm_side)
-                    time.sleep(2.0)
+                    action = _joints_to_action(plan.joint_angles_pre)
+                    action["gripper.pos"] = 5.0  # 保持夹紧
+                    ctrl.move_to(action, wait=2.0)
 
                 logger.info("抓取执行完成!")
                 return True
@@ -1028,7 +1048,7 @@ class VisionGraspPipeline:
         except ImportError as e:
             logger.error(f"无法导入 arm-control 技能: {e}")
             logger.info("抓取规划已完成，但无法自动执行。"
-                        "请手动调用 arm-control 传入关节角度。")
+                        "请手动调用 arm-control 传入关节值。")
             return False
 
     def _show_preview(self, image: np.ndarray,
@@ -1066,11 +1086,11 @@ def parse_args() -> argparse.Namespace:
   # 颜色检测
   python main.py --target "红色物体" --detector color
 
-  # 指定摄像头和手臂
-  python main.py --target 杯子 --camera left_wrist --arm right
+  # 指定摄像头
+  python main.py --target 杯子 --camera high
 
-  # 配合 ROS2 机械臂
-  python main.py --target 杯子 --arm-mode ros2 --auto-execute
+  # 指定机械臂串口
+  python main.py --target 杯子 --arm-port COM7 --auto-execute
         """,
     )
 
@@ -1089,9 +1109,8 @@ def parse_args() -> argparse.Namespace:
         help="检测后端 (默认 yolo)",
     )
     parser.add_argument(
-        "--arm", type=str, default="left",
-        choices=["left", "right"],
-        help="执行抓取的手臂 (默认 left)",
+        "--arm", type=str, default="default",
+        help="机械臂标识 (SO100 单臂，默认 default)",
     )
     parser.add_argument(
         "--confidence", type=float, default=0.5,
@@ -1126,12 +1145,8 @@ def parse_args() -> argparse.Namespace:
         help="通义千问 API Key (也可通过 DASHSCOPE_API_KEY 环境变量设置)",
     )
     parser.add_argument(
-        "--arm-mode", type=str, default="sdk", choices=["sdk", "ros2"],
-        help="arm-control 控制模式 (默认 sdk)",
-    )
-    parser.add_argument(
-        "--arm-port", type=str, default="/dev/ttyUSB0",
-        help="arm-control 串口端口 (仅 SDK 模式)",
+        "--arm-port", type=str, default="COM7",
+        help="SO100 机械臂串口端口 (默认 COM7)",
     )
 
     return parser.parse_args()
@@ -1159,7 +1174,6 @@ def main():
         plan = pipeline.run(
             target=args.target,
             auto_execute=True,
-            arm_mode=args.arm_mode,
             arm_port=args.arm_port,
         )
     else:
