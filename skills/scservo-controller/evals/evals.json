@@ -1,0 +1,29 @@
+{
+  "skill_name": "scservo-controller",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need to connect to my SC Servo motor on COM3 and move it to position 500. Show me the Python code.",
+      "expected_output": "Code that initializes PortHandler and PacketHandler, opens the port on COM3, and writes position 500 to address 20.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "Help me control a robotic arm with 3 servos (IDs 1, 2, 3). I want to move them all to different positions at the same time using synchronous write.",
+      "expected_output": "Code using GroupSyncWrite to set different goal positions for servos 1, 2, and 3 simultaneously.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I'm getting 'Rx timeout' error when trying to ping my servo. What could be wrong and how do I debug this?",
+      "expected_output": "Explanation of common causes (wiring, power, servo ID mismatch, port name) and troubleshooting steps.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "Write a Python script that connects to a servo, reads its current position, moves it to position 800, waits, then reads the new position.",
+      "expected_output": "Complete script with initialization, read2ByteTxRx for position, write2ByteTxRx for movement, time.sleep for wait, and cleanup.",
+      "files": []
+    }
+  ]
+}

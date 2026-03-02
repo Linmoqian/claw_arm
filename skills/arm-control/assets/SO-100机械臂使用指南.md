@@ -1,0 +1,643 @@
+# SO100 机械臂使用指南
+
+本指南介绍如何使用 Python 控制 SO100 机械臂，包括环境配置、基本操作和 API 接口说明。
+
+## 目录
+
+- [系统要求](#系统要求)
+- [环境配置](#环境配置)
+- [硬件连接](#硬件连接)
+- [基本使用](#基本使用)
+- [API 接口说明](#api-接口说明)
+- [示例代码](#示例代码)
+- [常见问题](#常见问题)
+
+---
+
+## 系统要求
+
+### 软件要求
+
+- **操作系统**: Windows 10/11, Linux, macOS
+- **Python 版本**: 3.10 或更高（推荐 3.10.x）
+- **包管理器**: pip 或 conda
+
+### 硬件要求
+
+- SO100 机械臂（6 个自由度）
+- USB 数据线
+- 电源适配器（12V DC）
+- 计算机带有 USB 端口
+
+---
+
+## 环境配置
+
+### 1. 创建 Conda 环境
+
+```bash
+# 创建 Python 3.10 环境
+conda create -n lerobot python=3.10 -y
+
+# 激活环境
+conda activate lerobot
+```
+
+### 2. 安装 LeRobot 和依赖
+
+```bash
+# 进入项目目录
+cd /path/to/lerobot
+
+# 安装 LeRobot 及 Feetech 支持
+pip install -e ".[feetech]"
+```
+
+### 3. 验证安装
+
+```bash
+# 检查 LeRobot 是否安装成功
+python -c "from lerobot.robots.so_follower import SO100Follower; print('安装成功！')"
+
+# 查看可用命令
+lerobot-info
+```
+
+---
+
+## 硬件连接
+
+### 1. 电机连接
+
+SO100 机械臂包含 6 个电机，按以下顺序连接：
+
+| 电机 ID | 关节名称 | 描述 |
+|---------|----------|------|
+| 1 | shoulder_pan | 底部旋转关节 |
+| 2 | shoulder_lift | 大臂升降关节 |
+| 3 | elbow_flex | 小臂弯曲关节 |
+| 4 | wrist_flex | 手腕俯仰关节 |
+| 5 | wrist_roll | 手腕旋转关节 |
+| 6 | gripper | 夹爪开合 |
+
+### 2. 控制器连接
+
+- 将 USB 线连接到计算机
+- 将电源适配器连接到控制器板（12V DC）
+- 确保所有电机线缆正确连接
+
+### 3. 查找串口
+
+#### Windows
+
+```bash
+# 在设备管理器中查看，或使用 Python
+python -c "import serial.tools.list_ports; [print(p.device, p.description) for p in serial.tools.list_ports.comports()]"
+```
+
+#### Linux/macOS
+
+```bash
+# 使用 lerobot 工具
+lerobot-find-port
+
+# 或手动查看
+ls /dev/tty.*  # macOS
+ls /dev/ttyUSB* /dev/ttyACM*  # Linux
+```
+
+---
+
+## 基本使用
+
+### 首次使用：设置电机 ID
+
+如果电机是全新的，需要先设置每个电机的 ID：
+
+```bash
+lerobot-setup-motors \
+  --robot.type=so100_follower \
+  --robot.port=COM7 \
+  --robot.id=my_so100_arm
+```
+
+按照提示，每次只连接一个电机，程序会自动设置 ID。
+
+### 校准机械臂
+
+首次设置或更换电机后，必须进行校准：
+
+```bash
+lerobot-calibrate \
+  --robot.type=so100_follower \
+  --robot.port=COM7 \
+  --robot.id=my_so100_arm
+```
+
+校准过程：
+1. 将机械臂移动到中间位置，按 Enter
+2. 逐个移动每个关节到其运动范围，按 Enter
+3. 校准数据自动保存
+
+---
+
+## API 接口说明
+
+### 导入模块
+
+```python
+import sys
+sys.path.insert(0, '/path/to/lerobot/src')
+
+from lerobot.robots.so_follower import SO100Follower, SO100FollowerConfig
+```
+
+### 配置类：SO100FollowerConfig
+
+```python
+config = SO100FollowerConfig(
+    port="COM7",                    # 串口名称（必需）
+    id="my_so100_arm",              # 机械臂唯一标识符（必需）
+    disable_torque_on_disconnect=True,  # 断开时禁用扭矩（默认 True）
+    use_degrees=False,              # 是否使用度数（默认 False）
+    max_relative_target=None        # 最大相对移动限制（安全限制）
+)
+```
+
+### 机器人类：SO100Follower
+
+#### 主要方法
+
+##### 1. connect(calibrate=True)
+
+连接到机械臂。
+
+```python
+robot = SO100Follower(config)
+robot.connect(calibrate=False)  # False=跳过校准，True=自动校准
+```
+
+**参数**:
+- `calibrate` (bool): 是否在连接时校准。如果已校准过，设为 False
+
+**返回**: 无
+
+**异常**:
+- `ConnectionError`: 端口被占用或无法连接
+- `RuntimeError`: 电机未校准
+
+##### 2. disconnect()
+
+断开机械臂连接。
+
+```python
+robot.disconnect()
+```
+
+**说明**: 自动禁用所有电机扭矩，安全停止机械臂。
+
+##### 3. get_observation()
+
+读取当前机械臂状态。
+
+```python
+observation = robot.get_observation()
+```
+
+**返回**: `dict` - 包含所有关节位置
+
+```python
+{
+    'shoulder_pan.pos': -7.54,    # 范围: -100 到 100
+    'shoulder_lift.pos': 96.69,   # 范围: -100 到 100
+    'elbow_flex.pos': -97.40,     # 范围: -100 到 100
+    'wrist_flex.pos': -13.28,     # 范围: -100 到 100
+    'wrist_roll.pos': 0.07,       # 范围: -100 到 100
+    'gripper.pos': 3.38           # 范围: 0 到 100
+}
+```
+
+##### 4. send_action(action)
+
+发送控制指令到机械臂。
+
+```python
+action = {
+    'shoulder_pan.pos': 10.0,
+    'shoulder_lift.pos': 10.0,
+    'elbow_flex.pos': 10.0,
+    'wrist_flex.pos': 10.0,
+    'wrist_roll.pos': 10.0,
+    'gripper.pos': 50.0
+}
+
+robot.send_action(action)
+```
+
+**参数**:
+- `action` (dict): 目标位置，键为 `关节名.pos`，值为位置
+
+**返回**: `dict` - 实际发送的动作（可能被安全限制裁剪）
+
+**注意事项**:
+- 值范围为 -100 到 100（gripper 为 0-100）
+- 如果设置了 `max_relative_target`，动作会被限制在安全范围内
+- 动作是阻塞的，会等待电机移动到目标位置
+
+#### 属性
+
+```python
+# 检查是否已连接
+is_connected = robot.is_connected
+
+# 检查是否已校准
+is_calibrated = robot.is_calibrated
+
+# 获取观察特征
+features = robot.observation_features
+
+# 获取动作特征
+action_features = robot.action_features
+```
+
+---
+
+## 示例代码
+
+### 示例 1：基本连接和读取
+
+```python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import sys
+sys.path.insert(0, 'src')
+
+from lerobot.robots.so_follower import SO100Follower, SO100FollowerConfig
+
+# 配置机械臂
+config = SO100FollowerConfig(
+    port="COM7",
+    id="my_so100_arm"
+)
+
+# 创建实例
+robot = SO100Follower(config)
+
+try:
+    # 连接
+    robot.connect(calibrate=False)
+    print("连接成功！")
+
+    # 读取当前位置
+    observation = robot.get_observation()
+    print("当前关节位置:")
+    for joint, value in observation.items():
+        if joint.endswith('.pos'):
+            print(f"  {joint}: {value:.2f}")
+
+finally:
+    # 断开连接
+    robot.disconnect()
+    print("已断开连接")
+```
+
+### 示例 2：移动机械臂
+
+```python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import sys
+sys.path.insert(0, 'src')
+
+from lerobot.robots.so_follower import SO100Follower, SO100FollowerConfig
+import time
+
+config = SO100FollowerConfig(port="COM7", id="my_so100_arm")
+robot = SO100Follower(config)
+
+try:
+    robot.connect(calibrate=False)
+    print("连接成功！")
+
+    # 定义一个动作序列
+    actions = [
+        {  # 动作 1：抬起手臂，打开夹爪
+            'shoulder_pan.pos': 0.0,
+            'shoulder_lift.pos': 30.0,
+            'elbow_flex.pos': -45.0,
+            'wrist_flex.pos': -20.0,
+            'wrist_roll.pos': 0.0,
+            'gripper.pos': 80.0
+        },
+        {  # 动作 2：向前伸展
+            'shoulder_pan.pos': 0.0,
+            'shoulder_lift.pos': 10.0,
+            'elbow_flex.pos': -80.0,
+            'wrist_flex.pos': 0.0,
+            'wrist_roll.pos': 0.0,
+            'gripper.pos': 80.0
+        },
+        {  # 动作 3：闭合夹爪
+            'shoulder_pan.pos': 0.0,
+            'shoulder_lift.pos': 10.0,
+            'elbow_flex.pos': -80.0,
+            'wrist_flex.pos': 0.0,
+            'wrist_roll.pos': 0.0,
+            'gripper.pos': 10.0
+        },
+        {  # 动作 4：回到初始位置
+            'shoulder_pan.pos': 0.0,
+            'shoulder_lift.pos': 0.0,
+            'elbow_flex.pos': 0.0,
+            'wrist_flex.pos': 0.0,
+            'wrist_roll.pos': 0.0,
+            'gripper.pos': 0.0
+        }
+    ]
+
+    # 执行动作序列
+    for i, action in enumerate(actions, 1):
+        print(f"\n执行动作 {i}/{len(actions)}")
+        robot.send_action(action)
+        time.sleep(2)  # 等待动作完成
+
+    print("\n动作序列执行完成！")
+
+finally:
+    robot.disconnect()
+    print("已安全断开")
+```
+
+### 示例 3：精确位置控制
+
+```python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import sys
+sys.path.insert(0, 'src')
+
+from lerobot.robots.so_follower import SO100Follower, SO100FollowerConfig
+
+config = SO100FollowerConfig(
+    port="COM7",
+    id="my_so100_arm",
+    max_relative_target=10.0  # 限制每次移动最大幅度，提高安全性
+)
+
+robot = SO100Follower(config)
+
+try:
+    robot.connect(calibrate=False)
+
+    # 读取当前位置
+    current = robot.get_observation()
+
+    # 计算目标位置（在当前位置基础上移动）
+    target = {}
+    for joint in current:
+        if joint.endswith('.pos'):
+            # 每个关节移动 5 个单位
+            target[joint] = current[joint] + 5.0
+
+    # 发送动作
+    print(f"移动到: {target}")
+    robot.send_action(target)
+
+    # 验证到达位置
+    new_pos = robot.get_observation()
+    print(f"实际位置: {new_pos}")
+
+finally:
+    robot.disconnect()
+```
+
+### 示例 4：循环控制（摆动）
+
+```python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import sys
+sys.path.insert(0, 'src')
+
+from lerobot.robots.so_follower import SO100Follower, SO100FollowerConfig
+import time
+
+config = SO100FollowerConfig(port="COM7", id="my_so100_arm")
+robot = SO100Follower(config)
+
+try:
+    robot.connect(calibrate=False)
+    print("开始摆动测试（按 Ctrl+C 停止）...")
+
+    # 摆动参数
+    joint_name = 'shoulder_pan.pos'
+    amplitude = 30.0  # 摆动幅度
+    frequency = 0.5   # 频率 (Hz)
+
+    # 获取初始位置
+    initial = robot.get_observation()
+    center_pos = initial[joint_name]
+
+    # 循环摆动
+    cycle = 0
+    while True:
+        try:
+            # 计算目标位置（正弦波）
+            import math
+            offset = amplitude * math.sin(2 * math.pi * frequency * cycle * 0.1)
+            target_pos = center_pos + offset
+
+            # 发送动作
+            action = {joint_name: target_pos}
+            robot.send_action(action)
+
+            cycle += 1
+            time.sleep(0.1)  # 10 Hz 控制频率
+
+        except KeyboardInterrupt:
+            print("\n停止摆动")
+            break
+
+    # 回到中心位置
+    robot.send_action({joint_name: center_pos})
+    time.sleep(1)
+
+finally:
+    robot.disconnect()
+    print("已安全断开")
+```
+
+### 示例 5：使用上下文管理器
+
+```python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import sys
+sys.path.insert(0, 'src')
+
+from lerobot.robots.so_follower import SO100Follower, SO100FollowerConfig
+from contextlib import contextmanager
+
+@contextmanager
+def robot_connection(port, robot_id):
+    """上下文管理器，自动处理连接和断开"""
+    config = SO100FollowerConfig(port=port, id=robot_id)
+    robot = SO100Follower(config)
+
+    try:
+        robot.connect(calibrate=False)
+        yield robot
+    finally:
+        robot.disconnect()
+
+# 使用示例
+with robot_connection("COM7", "my_so100_arm") as robot:
+    # 读取位置
+    pos = robot.get_observation()
+    print(f"当前位置: {pos}")
+
+    # 移动
+    action = {joint: 0.0 for joint in pos.keys()}
+    robot.send_action(action)
+
+    # 自动断开连接
+```
+
+---
+
+## 常见问题
+
+### Q1: 端口被占用错误
+
+**错误信息**:
+```
+PermissionError: could not open port 'COM7'
+```
+
+**解决方案**:
+1. 关闭其他可能使用串口的程序（Feetech 软件、其他终端等）
+2. 重新插拔 USB 线
+3. 重启 Python 解释器
+
+### Q2: 电机未校准错误
+
+**错误信息**:
+```
+RuntimeError: has no calibration registered
+```
+
+**解决方案**:
+运行校准命令：
+```bash
+lerobot-calibrate --robot.type=so100_follower --robot.port=COM7 --robot.id=my_so100_arm
+```
+
+### Q3: 找不到电机
+
+**错误信息**:
+```
+Missing motor IDs: 1, 2, 3, 4, 5, 6
+```
+
+**解决方案**:
+1. 检查电源是否接通
+2. 检查电机线缆是否正确连接
+3. 运行 `lerobot-setup-motors` 设置电机 ID
+
+### Q4: 动作范围超出限制
+
+**说明**:
+关节位置值范围为 -100 到 100（gripper 为 0-100）。超出范围的值会被自动裁剪。
+
+**建议**:
+- 使用较小的值进行测试
+- 考虑设置 `max_relative_target` 限制移动幅度
+- 在重要任务前先测试运动范围
+
+### Q5: Python 版本不兼容
+
+**问题**:
+Python 3.11+ 可能存在兼容性问题
+
+**解决方案**:
+```bash
+# 创建 Python 3.10 环境
+conda create -n lerobot python=3.10 -y
+conda activate lerobot
+```
+
+### Q6: 导入错误
+
+**错误信息**:
+```
+ModuleNotFoundError: No module named 'lerobot'
+```
+
+**解决方案**:
+```python
+import sys
+sys.path.insert(0, '/path/to/lerobot/src')
+```
+
+或确保已安装：
+```bash
+pip install -e /path/to/lerobot
+```
+
+---
+
+## 安全注意事项
+
+⚠️ **重要**：
+
+1. **首次测试前**：确保机械臂周围有足够空间（至少 1 米半径）
+2. **紧急停止**：随时准备断开电源或 USB 连接
+3. **电源安全**：使用符合规格的电源适配器
+4. **负载限制**：不要超过机械臂的最大负载（通常 500g）
+5. **缓慢移动**：使用较小的步长值进行测试
+6. **夹爪小心**：注意不要夹到手指
+
+---
+
+## 附录
+
+### 校准数据位置
+
+校准数据保存在：
+```
+~/.cache/huggingface/lerobot/calibration/robots/so_follower/<robot_id>.json
+```
+
+### 相关命令
+
+```bash
+# 查找端口
+lerobot-find-port
+
+# 设置电机 ID
+lerobot-setup-motors --robot.type=so100_follower --robot.port=COM7 --robot.id=my_so100_arm
+
+# 校准
+lerobot-calibrate --robot.type=so100_follower --robot.port=COM7 --robot.id=my_so100_arm
+
+# 查看系统信息
+lerobot-info
+
+# 记录数据
+lerobot-record --robot.type=so100_follower --robot.port=COM7 --robot.id=my_so100_arm
+
+# 远程操作
+lerobot-teleoperate --robot.type=so100_follower --robot.port=COM7
+```
+
+### 更多资源
+
+- LeRobot 官方文档: https://huggingface.co/docs/lerobot
+- GitHub 仓库: https://github.com/huggingface/lerobot
+- Discord 社区: https://discord.gg/q8Dzzpym3f
+
+---
+
+**文档版本**: 1.0
+**最后更新**: 2026-03-01
+**适用版本**: LeRobot 0.4.4+
