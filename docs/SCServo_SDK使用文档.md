@@ -32,19 +32,6 @@
 
 ---
 
-## 安装
-
-### 随 LeRobot 安装（当前方式）
-
-```bash
-pip install lerobot[feetech]
-```
-
-SDK 位置：
-```
-C:\Users\30470\Anaconda3\envs\lerobot\lib\site-packages\scservo_sdk\
-```
-
 ### 独立安装
 
 从官网下载：http://www.scservo.com/
