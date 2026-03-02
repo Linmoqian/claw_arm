@@ -3,3 +3,4 @@ OpenAI
 opencv-python
 numpy
 ultralytics
+pyserial
