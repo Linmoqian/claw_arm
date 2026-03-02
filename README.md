@@ -1,5 +1,7 @@
 
-<img src=xiagao.jpg width=400>
+<img src=docs/refences/xiakao_logo.png width=400>
+
+# 项目效果演示
 # 项目说明
  
 使用openclaw/claude code控制机械臂的全流程。

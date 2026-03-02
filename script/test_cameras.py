@@ -1,6 +1,6 @@
 import cv2
 
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)# 0 表示默认摄像头，若连接机械臂的摄像头则可能为1。
 
 if not cap.isOpened():
     print("无法打开摄像头")
