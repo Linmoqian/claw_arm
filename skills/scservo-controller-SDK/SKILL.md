@@ -295,14 +295,3 @@ portHandler.closePort()
 4. **及时关闭串口**：释放串口设备，避免被占用
 5. **合理设置速度和加速度**：减少突兀动作与机械冲击
 6. **监控扭矩限制**：防止过热和过载
-
-## 故障排查
-
-| Problem | Solution |
-|---------|----------|
-| "Port is in use" | 串口被其他程序占用，关闭其他串口应用 |
-| "Failed to open port" | 检查串口名、USB 连接和系统权限 |
-| "Rx timeout" | 舵机无响应，检查供电、接线和舵机 ID |
-| "Overload error" | 降低负载或扭矩限制 |
-| "Overheat error" | 暂停使用让舵机降温，降低工作强度 |
-| Servo doesn't move | 检查扭矩限制（地址 22）是否被设为 0 |
