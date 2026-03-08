@@ -1,0 +1,22 @@
+[
+  {"query": "计算一下当关节角度为 [0, -45, 45, -60, 0, -45] 度时，末端执行器的位置在哪里？", "should_trigger": true},
+  {"query": "我想知道给定一组关节角度，怎么算出机械臂末端的位置和姿态", "should_trigger": true},
+  {"query": "帮我求解逆运动学，目标位置是 (0.15, 0.05, 0.25) 米", "should_trigger": true},
+  {"query": "读取一下 SO100 的 URDF 文件，看看关节参数都是什么", "should_trigger": true},
+  {"query": "检查一下 (0.3, 0.1, 0.2) 这个点机械臂能不能到达", "should_trigger": true},
+  {"query": "帮我算一下雅可比矩阵，看看机械臂在这个姿态下的运动性能", "should_trigger": true},
+  {"query": "规划一条从当前位置到目标位置的平滑轨迹", "should_trigger": true},
+  {"query": "把舵机位置 2500 转换成角度是多少？", "should_trigger": true},
+  {"query": "当前关节角度是否超出了限位范围？帮我检查一下", "should_trigger": true},
+  {"query": "我需要知道 DH 参数表是什么，机械臂的工作空间有多大", "should_trigger": true},
+  {"query": "把机械臂移到左边去", "should_trigger": false},
+  {"query": "张开夹爪抓起桌上的杯子", "should_trigger": false},
+  {"query": "控制机械臂执行倒水动作", "should_trigger": false},
+  {"query": "识别摄像头里的红色方块", "should_trigger": false},
+  {"query": "直接给舵机写入位置 2047", "should_trigger": false},
+  {"query": "帮我写一个 Python 快速排序算法", "should_trigger": false},
+  {"query": "提交这些改动到 git", "should_trigger": false},
+  {"query": "机器人的 PID 控制器怎么设计？", "should_trigger": false},
+  {"query": "UR5 机械臂的运动学怎么算？", "should_trigger": false},
+  {"query": "安装 numpy 和 scipy 依赖", "should_trigger": false}
+]
