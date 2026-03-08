@@ -18,43 +18,10 @@
 
 **SCServo SDK** 是 Feetech 公司提供的 Python 串行舵机控制库，用于控制 STS、SMS、SCS 系列总线舵机。
 
-### 特点
-
-- 支持多舵机总线通信
-- 同步读写功能
-- 位置、速度、扭矩控制
-- Python 2.7/3.x 兼容
-
-### 适用电机
-
-- STS3215 (SO100 使用)
-- 其他 STS/SMS/SCS 系列舵机
-
----
-
-## 安装
-
-### 随 LeRobot 安装（当前方式）
-
-```bash
-pip install lerobot[feetech]
-```
-
 SDK 位置：
 ```
 C:\Users\30470\Anaconda3\envs\lerobot\lib\site-packages\scservo_sdk\
 ```
-
-### 独立安装
-
-从官网下载：http://www.scservo.com/
-
-或从 GitHub 克隆：
-```bash
-git clone https://gitee.com/kennethyu/FTServo_Python.git
-```
-
----
 
 ## 模块结构
 
