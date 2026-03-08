@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-SO100 机械臂运动学控制脚本 (基于官方 URDF)
-使用 roboticstoolbox-python 直接加载 URDF
+SO100 机械臂运动学控制脚本 (基于 DH 参数)
+使用 roboticstoolbox-python 进行运动学计算
+
+依赖安装:
+    pip install roboticstoolbox spatialmath scipy
 """
 
 import time
@@ -11,19 +14,83 @@ import os
 import numpy as np
 
 # 添加项目路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, PROJECT_ROOT)
+
 from SDK import PortHandler, PacketHandler
 
-import roboticstoolbox as rtb
-from spatialmath import SE3
-from scipy.optimize import minimize
+try:
+    import roboticstoolbox as rtb
+    from spatialmath import SE3
+    from scipy.optimize import minimize
+    IK_AVAILABLE = True
+except ImportError as e:
+    print(f"[WARN] 运动学库未安装: {e}")
+    print("[WARN] 运动学功能将不可用，请运行: pip install roboticstoolbox spatialmath scipy")
+    IK_AVAILABLE = False
 
 
-# ───────── URDF 路径 ─────────
-URDF_PATH = os.path.join(os.path.dirname(__file__), "so100.urdf")
+# ───────── 常量配置 ─────────
 
+# 舵机参数 (STS3215)
+SERVO_CENTER = 2047      # 中位位置
+SERVO_RANGE = 270         # 角度范围 (度，需根据实际舵机确认)
+POSITION_MIN = 0
+POSITION_MAX = 4095
 
-# ───────── SO100 运动学模型 (从 URDF 加载) ─────────
+# 安全角度限位 (度) - 比舵机物理限位更保守，防止碰撞
+# 用户可以根据实际需要调整这些值
+SAFE_ANGLE_LIMITS = {
+    'rotation': (-135, 135),      # shoulder_pan: 保留35度余量
+    'pitch': (-70, 70),           # shoulder_lift: 保留15度余量
+    'elbow': (-120, 120),         # elbow_flex: 保留30度余量
+    'wrist_pitch': (-100, 100),   # wrist_flex: 保留20度余量
+    'wrist_roll': (-150, 150),    # wrist_roll: 保留30度余量
+    'gripper': (10, 90),          # jaw: 防止完全闭合/张开
+}
+
+# 关节名称映射 (代码 → URDF)
+CODE_TO_URDF = {
+    'shoulder_pan': 'rotation',
+    'shoulder_lift': 'pitch',
+    'elbow_flex': 'elbow',
+    'wrist_flex': 'wrist_pitch',
+    'wrist_roll': 'wrist_roll',
+    'gripper': 'jaw',
+}
+
+# URDF → 代码名称映射
+URDF_TO_CODE_MAP = {
+    'rotation': 'shoulder_pan',
+    'pitch': 'shoulder_lift',
+    'elbow': 'elbow_flex',
+    'wrist_pitch': 'wrist_flex',
+    'wrist_roll': 'wrist_roll',
+    'jaw': 'gripper',
+}
+
+# 关节名称映射
+JOINT_NAME_MAP = {
+    # 代码名称 → URDF 名称
+    'shoulder_pan': 'rotation',
+    'shoulder_lift': 'pitch',
+    'elbow_flex': 'elbow',
+    'wrist_flex': 'wrist_pitch',
+    'wrist_roll': 'wrist_roll',
+    'gripper': 'jaw',
+}
+
+# 关节名称映射 (URDF → 代码)
+URDF_TO_CODE = {
+    'rotation': 'shoulder_pan',
+    'pitch': 'shoulder_lift',
+    'elbow': 'elbow_flex',
+    'wrist_pitch': 'wrist_flex',
+    'wrist_roll': 'wrist_roll',
+    'jaw': 'gripper',
+}
+
+# ───────── SO100 运动学模型 (基于 DH 参数) ─────────
 class SO100Kinematics:
     """
     SO100 机械臂运动学模型
@@ -148,13 +215,15 @@ class SO100Kinematics:
 
         if sol.success:
             q = sol.q
-            return {
+            result = {
                 'rotation': np.rad2deg(q[0]),
                 'pitch': np.rad2deg(q[1]),
                 'elbow': np.rad2deg(q[2]),
                 'wrist_pitch': np.rad2deg(q[3]),
                 'wrist_roll': np.rad2deg(q[4]),
             }
+            # 应用安全限位
+            return validate_joint_angles(result)
         else:
             print(f"[IK Warning] {sol.reason}")
             return None
@@ -192,9 +261,11 @@ class SO100Kinematics:
             np.deg2rad(current_angles.get('wrist_roll', 0)),
         ])
 
-        # 关节限制
-        bounds = [(np.deg2rad(lo), np.deg2rad(hi))
-                  for lo, hi in self.JOINT_LIMITS[:5]]
+        # 关节限制 - 使用安全限位而非物理限位
+        joint_names = ['rotation', 'pitch', 'elbow', 'wrist_pitch', 'wrist_roll']
+        bounds = [(np.deg2rad(SAFE_ANGLE_LIMITS[name][0]),
+                   np.deg2rad(SAFE_ANGLE_LIMITS[name][1]))
+                  for name in joint_names]
 
         # 优化
         result = minimize(
@@ -207,13 +278,15 @@ class SO100Kinematics:
 
         if result.success:
             q = result.x
-            return {
+            result_angles = {
                 'rotation': np.rad2deg(q[0]),
                 'pitch': np.rad2deg(q[1]),
                 'elbow': np.rad2deg(q[2]),
                 'wrist_pitch': np.rad2deg(q[3]),
                 'wrist_roll': np.rad2deg(q[4]),
             }
+            # 二次验证，确保在安全范围内
+            return validate_joint_angles(result_angles)
         return None
 
     def get_joint_limits(self):
@@ -286,11 +359,31 @@ class SO100Hardware:
     def get_all_positions(self) -> dict:
         return {m: self.get_position(m) for m in range(1, 7)}
 
-    def set_joint_angles(self, joint_angles: dict):
-        """按名称设置关节角度"""
+    def set_joint_angles(self, joint_angles: dict, validate: bool = True):
+        """
+        按名称设置关节角度
+
+        Args:
+            joint_angles: 关节角度字典 (度)
+            validate: 是否进行安全验证 (默认 True)
+        """
+        # 安全验证
+        if validate:
+            joint_angles = validate_joint_angles(joint_angles)
+
+        # 获取当前角度用于轨迹检查
+        current = self.get_joint_angles() if validate else {}
+
+        # 检查单步变化
+        if validate and not check_safe_trajectory(current, joint_angles):
+            print("[SAFETY] 轨迹检查失败，取消动作")
+            return
+
+        # 执行设置
         for name, angle in joint_angles.items():
             if name in self.MOTOR_MAP:
                 motor_id = self.MOTOR_MAP[name]
+                # 角度已经 validate 过，这里直接转换
                 pos = angle_to_position(angle)
                 self.set_position(motor_id, pos)
 
@@ -305,10 +398,85 @@ class SO100Hardware:
         return result == 0
 
 
+# ───────── 安全限位检查 ─────────
+def clamp_angle(joint_name: str, angle_deg: float) -> float:
+    """
+    将角度限制在安全范围内
+
+    Args:
+        joint_name: 关节名称 (rotation, pitch, elbow, wrist_pitch, wrist_roll, gripper)
+        angle_deg: 输入角度 (度)
+
+    Returns:
+        裁剪后的角度
+    """
+    # 尝试多个名称变体
+    limits_key = None
+    if joint_name in SAFE_ANGLE_LIMITS:
+        limits_key = joint_name
+    elif joint_name in CODE_TO_URDF:
+        limits_key = CODE_TO_URDF[joint_name]
+    elif joint_name in URDF_TO_CODE_MAP:
+        limits_key = joint_name
+
+    if limits_key and limits_key in SAFE_ANGLE_LIMITS:
+        min_angle, max_angle = SAFE_ANGLE_LIMITS[limits_key]
+        clamped = max(min_angle, min(max_angle, angle_deg))
+        if clamped != angle_deg:
+            print(f"[SAFETY] {joint_name}: {angle_deg:.1f}° → {clamped:.1f}° (限位: {min_angle}° ~ {max_angle}°)")
+        return clamped
+
+    # 未定义限制，使用保守默认值
+    return max(-135, min(135, angle_deg))
+
+
+def validate_joint_angles(joint_angles: dict) -> dict:
+    """
+    验证并裁剪所有关节角度到安全范围
+
+    Args:
+        joint_angles: 关节角度字典
+
+    Returns:
+        裁剪后的关节角度字典
+    """
+    validated = {}
+    for name, angle in joint_angles.items():
+        validated[name] = clamp_angle(name, angle)
+    return validated
+
+
+def check_safe_trajectory(current_angles: dict, target_angles: dict, max_step: float = 30.0) -> bool:
+    """
+    检查轨迹是否安全（单步最大变化限制）
+
+    Args:
+        current_angles: 当前角度
+        target_angles: 目标角度
+        max_step: 单步最大变化角度 (度)
+
+    Returns:
+        True if safe, False otherwise
+    """
+    for name, target in target_angles.items():
+        current = current_angles.get(name, 0)
+        delta = abs(target - current)
+        if delta > max_step:
+            print(f"[SAFETY] {name} 变化过大: {delta:.1f}° > {max_step}°，拒绝执行")
+            return False
+    return True
+
+
 # ───────── 角度转换 ─────────
 def angle_to_position(angle_deg: float, center: int = 2047, range_deg: float = 270) -> int:
-    """将角度转换为舵机位置 (0-4095)"""
-    return int(center + angle_deg * (4095 / range_deg))
+    """
+    将角度转换为舵机位置 (0-4095)
+
+    注意: 调用前应先使用 clamp_angle() 确保角度在安全范围内
+    """
+    pos = int(center + angle_deg * (4095 / range_deg))
+    # 双重保护: 确保位置在硬件范围内
+    return max(POSITION_MIN, min(POSITION_MAX, pos))
 
 
 def position_to_angle(pos: int, center: int = 2047, range_deg: float = 270) -> float:
@@ -320,14 +488,39 @@ def position_to_angle(pos: int, center: int = 2047, range_deg: float = 270) -> f
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="SO100 运动学控制 (基于官方 URDF)")
+    parser = argparse.ArgumentParser(
+        description="SO100 运动学控制 (基于 DH 参数)",
+        epilog="""
+示例:
+  # 测试正向运动学
+  python so100_kinematics_control.py --test-fk
+
+  # 测试逆向运动学
+  python so100_kinematics_control.py --test-ik
+
+  # 交互式笛卡尔控制
+  python so100_kinematics_control.py --interactive
+
+  # 可视化机器人模型
+  python so100_kinematics_control.py --visualize
+        """
+    )
     parser.add_argument('--port', type=str, default='COM7', help='串口')
     parser.add_argument('--test-fk', action='store_true', help='测试正向运动学')
     parser.add_argument('--test-ik', action='store_true', help='测试逆向运动学')
-    parser.add_argument('--interactive', action='store_true', help='交互式控制')
-    parser.add_argument('--visualize', action='store_true', help='可视化机器人')
+    parser.add_argument('--move', type=float, nargs=3, metavar=('X', 'Y', 'Z'),
+                        help='移动到笛卡尔坐标 (米) 例如: --move 0.2 0 0.3')
+    parser.add_argument('--interactive', action='store_true', help='交互式笛卡尔控制')
+    parser.add_argument('--visualize', action='store_true', help='可视化机器人模型')
+    parser.add_argument('--show-limits', action='store_true', help='显示安全角度限位')
+    parser.add_argument('--test-limits', action='store_true', help='测试安全限位裁剪')
 
     args = parser.parse_args()
+
+    if not IK_AVAILABLE:
+        print("[ERROR] 运动学功能需要安装依赖库:")
+        print("        pip install roboticstoolbox spatialmath scipy")
+        return 1
 
     # 创建运动学模型
     kinematics = SO100Kinematics()
@@ -335,6 +528,35 @@ def main():
     print("="*60)
     print("    SO100 机械臂运动学控制 (官方 URDF)")
     print("="*60)
+
+    # 显示安全限位
+    if args.show_limits:
+        print("\n[安全角度限位]")
+        print("-" * 40)
+        for name, (min_angle, max_angle) in SAFE_ANGLE_LIMITS.items():
+            range_deg = max_angle - min_angle
+            print(f"  {name:15s}: {min_angle:4.0f}° ~ {max_angle:4.0f}°  (范围: {range_deg}°)")
+        print("-" * 40)
+        print("\n对应舵机位置:")
+        for name, (min_angle, max_angle) in SAFE_ANGLE_LIMITS.items():
+            min_pos = angle_to_position(min_angle)
+            max_pos = angle_to_position(max_angle)
+            print(f"  {name:15s}: {min_pos:4d} ~ {max_pos:4d}")
+        return
+
+    # 测试安全限位
+    if args.test_limits:
+        print("\n[安全限位测试]")
+        test_cases = [
+            {'rotation': 200, 'pitch': 100, 'elbow': 0},   # 超出限位
+            {'rotation': -150, 'pitch': -80, 'elbow': 50}, # 正常范围
+            {'wrist_pitch': 150, 'wrist_roll': 200},       # 超出限位
+        ]
+        for i, angles in enumerate(test_cases, 1):
+            print(f"\n测试 {i}: {angles}")
+            validated = validate_joint_angles(angles)
+            print(f"  结果:   {validated}")
+        return
 
     # 可视化机器人
     if args.visualize:
@@ -364,13 +586,48 @@ def main():
         target = [0.2, 0.0, 0.3]  # x, y, z (m)
         result = kinematics.ik_numerical(np.array(target), {})
         if result:
-            print(f"目标位置: {target}")
+            print(f"目标位置: {target} m")
             print(f"解算角度: {result}")
             # 验证
             pose = kinematics.fk(result)
             print(f"验证位置: x={pose.t[0]:.3f}, y={pose.t[1]:.3f}, z={pose.t[2]:.3f}")
         else:
             print("[FAIL] IK 无解")
+
+    # 直接移动到指定位置
+    if args.move:
+        x, y, z = args.move
+        print(f"\n[笛卡尔空间移动]")
+        print(f"目标: x={x:.3f}, y={y:.3f}, z={z:.3f} m")
+
+        hardware = SO100Hardware(args.port)
+        try:
+            hardware.connect()
+            hardware.enable_all()
+
+            # 检测电机
+            found = [m for m in range(1, 7) if hardware.ping(m)]
+            print(f"[OK] 检测到 {len(found)}/6 个电机")
+
+            # 获取当前位置作为初值
+            current = hardware.get_joint_angles()
+
+            # 计算 IK
+            result = kinematics.ik_numerical(np.array([x, y, z]), current)
+            if result:
+                print(f"[OK] 解算成功:")
+                for name, angle in result.items():
+                    print(f"  {name}: {angle:.1f}°")
+
+                # 发送到硬件
+                hardware.set_joint_angles(result)
+                time.sleep(0.5)
+                print("[OK] 移动完成")
+            else:
+                print("[FAIL] IK 无解 - 目标点可能超出工作空间")
+
+        finally:
+            hardware.disconnect()
 
     # 交互式笛卡尔控制
     if args.interactive:
