@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 基于颜色检测的物体距离测量
 
@@ -8,7 +10,6 @@
 import cv2
 import numpy as np
 import json
-import os
 from pathlib import Path
 
 # ============== 配置参数 ==============
@@ -212,6 +213,34 @@ def calibrate_focal_length(known_distance: float, pixel_width: float, real_width
     return focal_length
 
 
+def save_focal_length(focal_length: float):
+    """
+    保存焦距到配置文件
+
+    Args:
+        focal_length: 新的焦距值
+    """
+    config = {}
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except Exception:
+            config = {}
+
+    if "distance_measure" not in config:
+        config["distance_measure"] = {}
+
+    config["distance_measure"]["focal_length"] = focal_length
+
+    try:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2, ensure_ascii=False)
+        print(f"[成功] 焦距已保存到 camera_config.json")
+    except Exception as e:
+        print(f"[错误] 保存配置文件失败: {e}")
+
+
 def interactive_calibration(frame: np.ndarray):
     """
     交互式焦距标定
@@ -244,8 +273,8 @@ def interactive_calibration(frame: np.ndarray):
     if save == 'y':
         global FOCAL_LENGTH
         FOCAL_LENGTH = new_focal
+        save_focal_length(new_focal)
         print(f"[成功] 焦距已更新为: {FOCAL_LENGTH:.1f} px")
-        # 注意：这里只更新全局变量，如需保存到文件需要额外实现
 
     return new_focal
 
@@ -258,62 +287,63 @@ def main():
     # 打开摄像头
     cap = cv2.VideoCapture(CAMERA_INDEX)
 
-    if not cap.isOpened():
-        print(f"[错误] 无法打开摄像头 {CAMERA_INDEX}")
-        return
+    try:
+        if not cap.isOpened():
+            print(f"[错误] 无法打开摄像头 {CAMERA_INDEX}")
+            return
 
-    # 设置分辨率
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        # 设置分辨率
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-    print("\n" + "=" * 50)
-    print("物体距离测量 - 按颜色检测")
-    print("=" * 50)
-    print(f"已知物体宽度: {KNOWN_WIDTH} cm")
-    print(f"相机焦距: {FOCAL_LENGTH} px")
-    print("按 'q' 退出")
-    print("按 'c' 进入焦距标定模式")
-    print("=" * 50 + "\n")
+        print("\n" + "=" * 50)
+        print("物体距离测量 - 按颜色检测")
+        print("=" * 50)
+        print(f"已知物体宽度: {KNOWN_WIDTH} cm")
+        print(f"相机焦距: {FOCAL_LENGTH} px")
+        print("按 'q' 退出")
+        print("按 'c' 进入焦距标定模式")
+        print("=" * 50 + "\n")
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("[错误] 无法读取摄像头画面")
-            break
-
-        # 检测物体
-        contour, pixel_width, pixel_height, center = detect_colored_object(frame)
-
-        # 计算距离
-        distance = 0.0
-        if contour is not None:
-            distance = calculate_distance(pixel_width)
-
-        # 绘制信息
-        if contour is not None:
-            frame = draw_info(frame, contour, pixel_width, pixel_height, center, distance)
-
-        # 绘制状态面板
-        draw_status_panel(frame)
-
-        # 显示画面
-        cv2.imshow("Distance Measurement", frame)
-
-        # 键盘控制
-        key = cv2.waitKey(1) & 0xFF
-
-        if key == ord('q'):
-            break
-        elif key == ord('c'):
-            # 进入标定模式
+        while True:
             ret, frame = cap.read()
-            if ret:
-                interactive_calibration(frame)
+            if not ret:
+                print("[错误] 无法读取摄像头画面")
+                break
 
-    # 释放资源
-    cap.release()
-    cv2.destroyAllWindows()
-    print("\n[结束] 程序已退出")
+            # 检测物体
+            contour, pixel_width, pixel_height, center = detect_colored_object(frame)
+
+            # 计算距离
+            distance = 0.0
+            if contour is not None:
+                distance = calculate_distance(pixel_width)
+
+            # 绘制信息
+            if contour is not None:
+                frame = draw_info(frame, contour, pixel_width, pixel_height, center, distance)
+
+            # 绘制状态面板
+            draw_status_panel(frame)
+
+            # 显示画面
+            cv2.imshow("Distance Measurement", frame)
+
+            # 键盘控制
+            key = cv2.waitKey(1) & 0xFF
+
+            if key == ord('q'):
+                break
+            elif key == ord('c'):
+                # 进入标定模式
+                ret, frame = cap.read()
+                if ret:
+                    interactive_calibration(frame)
+    finally:
+        # 释放资源
+        cap.release()
+        cv2.destroyAllWindows()
+        print("\n[结束] 程序已退出")
 
 
 if __name__ == "__main__":
