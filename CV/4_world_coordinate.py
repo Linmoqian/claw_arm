@@ -273,10 +273,11 @@ def main():
 
     # 交互式输入
     print_colored("\n交互式转换 (输入 'q' 退出):", Colors.CYAN)
+    print_colored("示例: 320,240 或 320 240", Colors.GRAY)
 
     while True:
         try:
-            user_input = input("\n输入像素坐标 (格式: x,y 或 x y): ").strip()
+            user_input = input("\n输入像素坐标: ").strip()
 
             if user_input.lower() == 'q':
                 break
