@@ -9,23 +9,7 @@ import json
 import cv2
 import numpy as np
 from pathlib import Path
-
-
-# 颜色定义
-class Colors:
-    """终端彩色输出"""
-    GREEN = '\033[92m'      # 成功
-    YELLOW = '\033[93m'     # 警告
-    RED = '\033[91m'        # 错误
-    CYAN = '\033[96m'       # 交互提示
-    BLUE = '\033[94m'       # 高亮
-    GRAY = '\033[90m'       # 次要信息
-    RESET = '\033[0m'
-
-
-def print_colored(message: str, color: str = Colors.RESET) -> None:
-    """打印彩色文本"""
-    print(f"{color}{message}{Colors.RESET}")
+from cv_utils import Colors, print_colored
 
 
 def load_camera_config(config_path: str = None) -> dict:
