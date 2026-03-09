@@ -11,25 +11,19 @@ import cv2
 import numpy as np
 import json
 from pathlib import Path
+from cv_utils import ColorOutput
 
-# ============== 配置参数 ==============
-# 物体实际宽度（厘米）
-KNOWN_WIDTH = 10.0
-
-# 相机焦距（像素单位）- 需要通过标定获得
-FOCAL_LENGTH = 600.0
+# 配置参数
+KNOWN_WIDTH = 10.0  # 物体实际宽度（厘米）
+FOCAL_LENGTH = 600.0  # 相机焦距（像素单位）
+MIN_CONTOUR_AREA = 500  # 最小检测面积（像素）
+CAMERA_INDEX = 0  # 相机索引
 
 # 颜色检测范围 (HSV) - 默认红色
 COLOR_LOWER = np.array([0, 100, 100])
 COLOR_UPPER = np.array([10, 255, 255])
 COLOR_LOWER2 = np.array([160, 100, 100])  # 红色需要两个范围
 COLOR_UPPER2 = np.array([180, 255, 255])
-
-# 最小检测面积（像素）
-MIN_CONTOUR_AREA = 500
-
-# 相机索引
-CAMERA_INDEX = 0
 
 # 配置文件路径
 CONFIG_FILE = Path(__file__).parent / "camera_config.json"
@@ -56,11 +50,10 @@ def load_config():
                     COLOR_LOWER2 = np.array(color.get("lower2", COLOR_LOWER2.tolist()))
                     COLOR_UPPER2 = np.array(color.get("upper2", COLOR_UPPER2.tolist()))
 
-                print(f"[配置] 已加载 camera_config.json")
-                print(f"  - 已知物体宽度: {KNOWN_WIDTH} cm")
-                print(f"  - 焦距: {FOCAL_LENGTH} px")
+                ColorOutput.success(f"已加载 camera_config.json")
+                ColorOutput.secondary(f"物体宽度: {KNOWN_WIDTH} cm  焦距: {FOCAL_LENGTH} px")
         except Exception as e:
-            print(f"[警告] 配置文件加载失败: {e}")
+            ColorOutput.warning(f"配置文件加载失败: {e}")
 
 
 def calculate_distance(pixel_width: float, real_width: float = None, focal_length: float = None) -> float:
@@ -236,9 +229,9 @@ def save_focal_length(focal_length: float):
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
-        print(f"[成功] 焦距已保存到 camera_config.json")
+        ColorOutput.success(f"焦距已保存到 camera_config.json")
     except Exception as e:
-        print(f"[错误] 保存配置文件失败: {e}")
+        ColorOutput.error(f"保存配置文件失败: {e}")
 
 
 def interactive_calibration(frame: np.ndarray):
@@ -246,35 +239,33 @@ def interactive_calibration(frame: np.ndarray):
     交互式焦距标定
     """
     global FOCAL_LENGTH
-    print("\n" + "=" * 50)
-    print("焦距标定模式")
-    print("=" * 50)
-    print(f"1. 将宽度为 {KNOWN_WIDTH} cm 的物体放置在摄像头前")
-    print("2. 输入物体到摄像头的实际距离（厘米）")
+    ColorOutput.highlight("\n焦距标定模式")
+    ColorOutput.info(f"将宽度为 {KNOWN_WIDTH} cm 的物体放置在摄像头前")
+    ColorOutput.info("输入物体到摄像头的实际距离（厘米）")
 
     try:
         known_distance = float(input("请输入距离（cm）: "))
     except ValueError:
-        print("[错误] 无效输入")
+        ColorOutput.error("无效输入")
         return FOCAL_LENGTH
 
     # 检测物体
     contour, pixel_width, _, _ = detect_colored_object(frame)
 
     if contour is None or pixel_width == 0:
-        print("[错误] 未检测到物体")
+        ColorOutput.error("未检测到物体")
         return FOCAL_LENGTH
 
     # 计算焦距
     new_focal = calibrate_focal_length(known_distance, pixel_width, KNOWN_WIDTH)
-    print(f"[结果] 计算得到的焦距: {new_focal:.1f} px")
+    ColorOutput.success(f"计算得到的焦距: {new_focal:.1f} px")
 
     # 询问是否保存
     save = input("是否保存到配置文件? (y/n): ").strip().lower()
     if save == 'y':
         FOCAL_LENGTH = new_focal
         save_focal_length(new_focal)
-        print(f"[成功] 焦距已更新为: {FOCAL_LENGTH:.1f} px")
+        ColorOutput.success(f"焦距已更新为: {FOCAL_LENGTH:.1f} px")
 
     return new_focal
 
@@ -289,26 +280,21 @@ def main():
 
     try:
         if not cap.isOpened():
-            print(f"[错误] 无法打开摄像头 {CAMERA_INDEX}")
+            ColorOutput.error(f"无法打开摄像头 {CAMERA_INDEX}")
             return
 
         # 设置分辨率
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-        print("\n" + "=" * 50)
-        print("物体距离测量 - 按颜色检测")
-        print("=" * 50)
-        print(f"已知物体宽度: {KNOWN_WIDTH} cm")
-        print(f"相机焦距: {FOCAL_LENGTH} px")
-        print("按 'q' 退出")
-        print("按 'c' 进入焦距标定模式")
-        print("=" * 50 + "\n")
+        ColorOutput.highlight("\n物体距离测量")
+        ColorOutput.secondary(f"物体宽度: {KNOWN_WIDTH} cm  焦距: {FOCAL_LENGTH} px")
+        ColorOutput.info("按 'q' 退出  按 'c' 标定焦距")
 
         while True:
             ret, frame = cap.read()
             if not ret:
-                print("[错误] 无法读取摄像头画面")
+                ColorOutput.error("无法读取摄像头画面")
                 break
 
             # 检测物体
@@ -343,7 +329,7 @@ def main():
         # 释放资源
         cap.release()
         cv2.destroyAllWindows()
-        print("\n[结束] 程序已退出")
+        ColorOutput.info("\n程序已退出")
 
 
 if __name__ == "__main__":
