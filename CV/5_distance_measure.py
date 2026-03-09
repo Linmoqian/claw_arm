@@ -245,6 +245,7 @@ def interactive_calibration(frame: np.ndarray):
     """
     交互式焦距标定
     """
+    global FOCAL_LENGTH
     print("\n" + "=" * 50)
     print("焦距标定模式")
     print("=" * 50)
@@ -271,7 +272,6 @@ def interactive_calibration(frame: np.ndarray):
     # 询问是否保存
     save = input("是否保存到配置文件? (y/n): ").strip().lower()
     if save == 'y':
-        global FOCAL_LENGTH
         FOCAL_LENGTH = new_focal
         save_focal_length(new_focal)
         print(f"[成功] 焦距已更新为: {FOCAL_LENGTH:.1f} px")
