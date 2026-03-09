@@ -165,7 +165,7 @@ def main():
                 for i, r in enumerate(results, 1):
                     cx, cy = r['center']
                     print_colored(
-                        f"物体 #{i}: 坐标 ({cx:4d}, {cy:4d})  面积: {r['area']:6d}",
+                        f"物体 #{i}: 坐标 ({cx:4d}, {cy:4d})  面积: {int(r['area']):6d}",
                         Colors.GREEN
                     )
             else:
