@@ -56,7 +56,9 @@ COLOR_PRESETS = {
     'red': {
         'name': '红色',
         'lower': (0, 50, 50),
-        'upper': (10, 255, 255)
+        'upper': (10, 255, 255),
+        'lower2': (160, 50, 50),
+        'upper2': (180, 255, 255)
     },
     'blue': {
         'name': '蓝色',
@@ -79,13 +81,21 @@ COLOR_PRESETS = {
 class ColorDetector:
     """颜色检测器"""
 
-    def __init__(self, h_min, h_max, s_min, s_max, v_min, v_max):
+    def __init__(self, h_min, h_max, s_min, s_max, v_min, v_max,
+                 h_min2=None, h_max2=None, s_min2=None, s_max2=None, v_min2=None, v_max2=None):
         self.h_min = h_min
         self.h_max = h_max
         self.s_min = s_min
         self.s_max = s_max
         self.v_min = v_min
         self.v_max = v_max
+        # 第二范围（用于红色等跨越色环两端的颜色）
+        self.h_min2 = h_min2
+        self.h_max2 = h_max2
+        self.s_min2 = s_min2
+        self.s_max2 = s_max2
+        self.v_min2 = v_min2
+        self.v_max2 = v_max2
 
     @property
     def lower(self):
@@ -94,6 +104,23 @@ class ColorDetector:
     @property
     def upper(self):
         return np.array([self.h_max, self.s_max, self.v_max])
+
+    @property
+    def lower2(self):
+        if self.h_min2 is None:
+            return None
+        return np.array([self.h_min2, self.s_min2, self.v_min2])
+
+    @property
+    def upper2(self):
+        if self.h_max2 is None:
+            return None
+        return np.array([self.h_max2, self.s_max2, self.v_max2])
+
+    @property
+    def has_dual_range(self):
+        """是否使用双范围检测"""
+        return self.h_min2 is not None
 
     def detect(self, frame, min_area=500):
         """
@@ -111,6 +138,11 @@ class ColorDetector:
 
         # 创建掩码
         mask = cv2.inRange(hsv, self.lower, self.upper)
+
+        # 如果有第二范围，合并两个掩码
+        if self.has_dual_range:
+            mask2 = cv2.inRange(hsv, self.lower2, self.upper2)
+            mask = cv2.bitwise_or(mask, mask2)
 
         # 去噪处理
         kernel = np.ones((5, 5), np.uint8)
@@ -137,7 +169,8 @@ class ColorDetector:
 
         return results, mask
 
-    def update_hsv(self, h_min, h_max, s_min, s_max, v_min, v_max):
+    def update_hsv(self, h_min, h_max, s_min, s_max, v_min, v_max,
+                   h_min2=None, h_max2=None, s_min2=None, s_max2=None, v_min2=None, v_max2=None):
         """更新 HSV 范围"""
         self.h_min = h_min
         self.h_max = h_max
@@ -145,10 +178,19 @@ class ColorDetector:
         self.s_max = s_max
         self.v_min = v_min
         self.v_max = v_max
+        self.h_min2 = h_min2
+        self.h_max2 = h_max2
+        self.s_min2 = s_min2
+        self.s_max2 = s_max2
+        self.v_min2 = v_min2
+        self.v_max2 = v_max2
 
     def get_hsv_info(self):
         """获取 HSV 范围信息字符串"""
-        return f"H({self.h_min}-{self.h_max}) S({self.s_min}-{self.s_max}) V({self.v_min}-{self.v_max})"
+        info = f"H({self.h_min}-{self.h_max}) S({self.s_min}-{self.s_max}) V({self.v_min}-{self.v_max})"
+        if self.has_dual_range:
+            info += f" + H({self.h_min2}-{self.h_max2}) S({self.s_min2}-{self.s_max2}) V({self.v_min2}-{self.v_max2})"
+        return info
 
 
 def draw_detections(frame, results, center):
@@ -292,8 +334,17 @@ def main():
     v_min = args.v_min if args.v_min is not None else preset['lower'][2]
     v_max = args.v_max if args.v_max is not None else preset['upper'][2]
 
+    # 检查是否有第二范围（如红色）
+    h_min2 = preset.get('lower2', (None,))[0]
+    h_max2 = preset.get('upper2', (None,))[0]
+    s_min2 = preset.get('lower2', (None, None))[1] if 'lower2' in preset else None
+    s_max2 = preset.get('upper2', (None, None))[1] if 'upper2' in preset else None
+    v_min2 = preset.get('lower2', (None, None, None))[2] if 'lower2' in preset else None
+    v_max2 = preset.get('upper2', (None, None, None))[2] if 'upper2' in preset else None
+
     # 创建检测器
-    detector = ColorDetector(h_min, h_max, s_min, s_max, v_min, v_max)
+    detector = ColorDetector(h_min, h_max, s_min, s_max, v_min, v_max,
+                             h_min2, h_max2, s_min2, s_max2, v_min2, v_max2)
     ColorOutput.info(f"HSV 范围: {detector.get_hsv_info()}")
 
     # 打开摄像头
