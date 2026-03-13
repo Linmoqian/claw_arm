@@ -7,7 +7,7 @@
 
 # 项目说明
  
-使用openclaw/claude code控制机械臂的全流程。
+使用openclaw/claude code控制机械臂的全流程，参考机器人三大法则设定的skill。
 
 # 实现流程
 

@@ -727,7 +727,7 @@ def mode_freedrag(controller: SO100Controller):
 
 def main():
     """主函数"""
-    PORT = "COM7"
+    PORT = "COM12"
 
     # 在 Windows 上启用 ANSI 颜色
     if os.name == 'nt':
