@@ -18,5 +18,11 @@ description: 自然的控制机械臂。
 # 关节描述
 
 ID:1~6，描述参考 @\references\so100_calibration.md
+ID6为夹爪
 
-# 底层控制
+# 关节控制
+
+基于描述，参考 @\scripts\simple_joint.py 进行控制
+
+# 空间理解
+

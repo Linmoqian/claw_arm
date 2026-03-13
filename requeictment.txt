@@ -1,7 +1,5 @@
-datasets
 OpenAI
 opencv-python
 numpy
 ultralytics
 pyserial
-serial

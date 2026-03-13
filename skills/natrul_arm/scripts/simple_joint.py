@@ -18,26 +18,21 @@ class Joint:
         self.port = port_handler
         self.pkt = packet_handler
         self.id = joint_id
-
     def enable(self):
         """启用扭矩"""
         self.pkt.write1ByteTxRx(self.port, self.id, self.TORQUE_ENABLE, 1)
-
     def disable(self):
         """禁用扭矩"""
         self.pkt.write1ByteTxRx(self.port, self.id, self.TORQUE_ENABLE, 0)
-
     def move(self, position: int):
         """移动到指定位置 (0-4095)"""
         position = max(0, min(4095, position))
         self.pkt.write2ByteTxRx(self.port, self.id, self.GOAL_POSITION, position)
-
     def position(self) -> int:
         """读取当前位置"""
         data, result, _ = self.pkt.read2ByteTxRx(
             self.port, self.id, self.PRESENT_POSITION)
         return data if result == 0 else -1
-
 
 def main():
     # 连接串口
