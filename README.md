@@ -2,10 +2,9 @@
 <img src="docs/refences/xiakao_logo.png" width="200" style="border-radius: 10%;">
 
 # 项目效果演示
-<video controls autoplay loop muted width=600>
-  <source src="movie.mp4" type="video/mp4">
-</video>
 
+ [观看演示视频](./movie.mp4)
+ 
 # 项目说明
  
 使用openclaw/claude code控制机械臂的全流程，参考机器人三大法则设定的skill。
