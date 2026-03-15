@@ -32,6 +32,8 @@ claude  # 或 openclaw
 
 # 方案
 1.传统几何方案（nature_arm）
+![alt text](image.png)
+![alt text](image-1.png)
 2.具身智能方案（未来将基于lerobot实现）
 
 # 项目目录

@@ -36,7 +36,7 @@ class Joint:
 
 def main():
     # 连接串口
-    port = PortHandler("COM12")
+    port = PortHandler("COM7")
     port.setBaudRate(1000000)
     pkt = PacketHandler(0.0)
     # 创建关节对象 (ID=1, 底部旋转关节)
