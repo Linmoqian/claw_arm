@@ -120,20 +120,19 @@ python examples/basic/hello_arm.py
 为新手设计的渐进式学习路径：
 
 ```
- 第1天            第2天             第3天             第4天
-   |                |                 |                 |
-   v                v                 v                 v
- 环境搭建   --->   硬件连接   --->   视觉理解   --->  第一次抓取
- 15min            20min             30min             45min
+  入门            基础             进阶             实战
+   |               |                |                |
+   v               v                v                v
+ 环境搭建   --->  硬件连接   --->  视觉理解   --->  第一次抓取
 ```
 
-| 阶段 | 文档 | 你将学会 | 预计时间 |
+| 阶段 | 文档 | 你将学会 |
 |------|------|----------|----------|
-| 入门 | [环境搭建](docs/01-getting-started.md) | 配置开发环境 | 15 分钟 |
-| 基础 | [硬件连接](docs/02-hardware-setup.md) | 连接机械臂和摄像头 | 20 分钟 |
-| 进阶 | [视觉模块](docs/03-vision-pipeline.md) | 理解坐标转换原理 | 30 分钟 |
-| 实战 | [第一次抓取](docs/06-first-grasp.md) | 完成自动抓取任务 | 45 分钟 |
-| 高级 | [二次开发](docs/07-advanced-dev.md) | 扩展自定义功能 | 持续 |
+| 入门 | [环境搭建](docs/01-getting-started.md) | 配置开发环境 |
+| 基础 | [硬件连接](docs/02-hardware-setup.md) | 连接机械臂和摄像头 |
+| 进阶 | [视觉模块](docs/03-vision-pipeline.md) | 理解坐标转换原理 |
+| 实战 | [第一次抓取](docs/06-first-grasp.md) | 完成自动抓取任务 |
+| 高级 | [二次开发](docs/07-advanced-dev.md) | 扩展自定义功能 |
 
 ## 项目结构
 
