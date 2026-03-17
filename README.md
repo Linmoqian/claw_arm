@@ -4,58 +4,58 @@
 
   # Claw Arm
 
-  ### **让机械臂听懂你的话**
+  ### **Make Your Robot Arm Understand You**
 
-  <i>看到 - 理解 - 行动</i>
+  <i>See - Understand - Act</i>
 
   <p>
 
   <a href="./movie.mp4">
-    <img src="https://img.shields.io/badge/Demo-观看演示-FF6B6B?style=for-the-badge" alt="Demo">
+    <img src="https://img.shields.io/badge/Demo-Watch-FF6B6B?style=for-the-badge" alt="Demo">
   </a>
   <a href="docs/01-getting-started.md">
-    <img src="https://img.shields.io/badge/Docs-快速开始-4ECDC4?style=for-the-badge" alt="Docs">
+    <img src="https://img.shields.io/badge/Docs-Get_Started-4ECDC4?style=for-the-badge" alt="Docs">
   </a>
   <a href="README_CN.md">
-    <img src="https://img.shields.io/badge/中文-详细文档-FFE66D?style=for-the-badge" alt="Chinese">
+    <img src="https://img.shields.io/badge/Chinese-中文文档-FFE66D?style=for-the-badge" alt="Chinese">
   </a>
 
 </div>
 
 ---
 
-## 简介
+## Overview
 
-**Claw Arm** 是一个让机械臂"变聪明"的开源项目——它能看到、能理解、能行动。
+**Claw Arm** is an open-source project that makes robot arms "smart" - it can see, understand, and act.
 
 ```
-你说："抓起那个红色的方块"
-它做：识别方块 -> 计算位置 -> 精准抓取
+You say: "Pick up the red cube"
+It does: Detect cube -> Calculate position -> Grasp precisely
 ```
 
-## 核心特性
+## Key Features
 
 <table>
 <tr>
 <td width="50%">
 
-### 自然语言控制
+### Natural Language Control
 
 ```bash
-/nature_arm 跳个舞
-/nature_arm 抓取红色物体
-/nature_arm 把方块放到左边
+/nature_arm dance
+/nature_arm grab the red object
+/nature_arm place the cube on the left
 ```
 
-结合 Claude Code / OpenClaw，用自然语言控制机械臂
+Control the arm using natural language via Claude Code / OpenClaw
 
 </td>
 <td width="50%">
 
-### 视觉引导抓取
+### Vision-Guided Grasping
 
 ```
-摄像头 -> 颜色检测 -> 坐标转换 -> 机械臂运动 -> 完成
+Camera -> Color Detection -> Coordinate Transform -> Motion Control -> Done
 ```
 
 </td>
@@ -63,145 +63,146 @@
 <tr>
 <td>
 
-### 多种控制模式
+### Multiple Control Modes
 
-| 模式 | 用途 |
-|------|------|
-| 交互式 | 手动控制 |
-| 示教 | 录制回放 |
-| 校准 | 精度调优 |
+| Mode | Purpose |
+|------|---------|
+| Interactive | Manual control |
+| Teaching | Record & playback |
+| Calibration | Fine-tuning |
 
 </td>
 <td>
 
-### 安全设计
+### Safety-First Design
 
-基于机器人三原则设计：
-1. 用户安全第一
-2. 自身安全第二
-3. 服从用户指令
+Built on the Three Laws of Robotics:
+1. User safety first
+2. Self-preservation second
+3. Follow user commands
 
 </td>
 </tr>
 </table>
 
-## 5 分钟快速开始
+## Quick Start (5 min)
 
 ```bash
-# 1. 克隆项目
+# 1. Clone the repository
 git clone https://github.com/your-username/claw_arm.git
 cd claw_arm
 
-# 2. 一键配置环境
+# 2. Setup environment
 conda env create -f environment.yml
 conda activate claw_arm
 
-# 3. 测试硬件
-python script/1.3test_motors.py  # 电机测试
-python CV/1_camera_test.py       # 摄像头测试
+# 3. Test hardware
+python script/1.3test_motors.py  # Motor test
+python CV/1_camera_test.py       # Camera test
 
-# 4. 运行第一个示例
+# 4. Run your first example
 python examples/basic/hello_arm.py
 ```
 
-> 第一次？跟着 [快速开始指南](docs/01-getting-started.md) 一步步来
+> First time? Follow the [Getting Started Guide](docs/01-getting-started.md) step by step
 
-## 硬件清单
+## Hardware Requirements
 
-| 组件 | 推荐型号 | 价格参考 |
-|------|----------|----------|
-| 机械臂 | SO-100 (6自由度) | 1500-2000 |
-| 摄像头 | USB 1080p / RealSense D435 | 100-500 |
-| 电源 | 12V 5A | 30 |
+| Component | Recommended | Price Range |
+|-----------|-------------|-------------|
+| Robot Arm | SO-100 (6-DOF) | $200-280 |
+| Camera | USB 1080p / RealSense D435 | $15-70 |
+| Power Supply | 12V 5A | $5 |
 
-> 预算有限？最小配置只需机械臂+普通摄像头
+> On a budget? Minimum setup requires only the arm + basic webcam
 
-## 学习路径
+## Learning Path
 
-为新手设计的渐进式学习路径：
+A progressive learning path designed for beginners:
 
 ```
-入门          基础           进阶           实战
- |             |              |              |
- v             v              v              v
-环境搭建  ->  硬件连接  ->   视觉理解  ->  第一次抓取
+ Beginner        Basic           Advanced        Practical
+    |              |                 |               |
+    v              v                 v               v
+ Setup Env  ->  Connect HW  ->   Understand   ->   First Grasp
+               Hardware        Vision
 ```
 
-| 阶段 | 文档 | 你将学会 |
-|------|------|----------|
-| 入门 | [环境搭建](docs/01-getting-started.md) | 配置开发环境 |
-| 基础 | [硬件连接](docs/02-hardware-setup.md) | 连接机械臂 |
-| 进阶 | [视觉模块](docs/03-vision-pipeline.md) | 理解坐标转换 |
-| 实战 | [第一次抓取](docs/06-first-grasp.md) | 完成自动抓取 |
-| 高级 | [二次开发](docs/07-advanced-dev.md) | 自定义功能 |
+| Stage | Document | You Will Learn |
+|-------|----------|----------------|
+| Beginner | [Getting Started](docs/01-getting-started.md) | Setup development environment |
+| Basic | [Hardware Setup](docs/02-hardware-setup.md) | Connect the robot arm |
+| Advanced | [Vision Pipeline](docs/03-vision-pipeline.md) | Understand coordinate transform |
+| Practical | [First Grasp](docs/06-first-grasp.md) | Complete auto-grasping |
+| Expert | [Advanced Dev](docs/07-advanced-dev.md) | Build custom features |
 
-## 项目结构
+## Project Structure
 
 ```
 claw_arm/
-├── CV/              # 计算机视觉模块
+├── CV/              # Computer vision module
 │   ├── 1_camera_test.py
 │   ├── 2_color_detection.py
 │   └── ...
-├── SDK/             # 舵机通信 SDK
-├── script/          # 调试脚本
-├── Joints/          # 关节控制
-├── skills/          # 自然语言技能
-├── examples/        # 入门示例
-│   ├── basic/       # 基础示例
-│   ├── intermediate/# 进阶示例
-│   └── advanced/    # 高级示例
-├── config/          # 配置模板
-└── docs/            # 详细文档
+├── SDK/             # Servo communication SDK
+├── script/          # Debug scripts
+├── Joints/          # Joint control
+├── skills/          # Natural language skills
+├── examples/        # Beginner examples
+│   ├── basic/       # Basic examples
+│   ├── intermediate/# Intermediate examples
+│   └── advanced/    # Advanced examples
+├── config/          # Config templates
+└── docs/            # Documentation
 ```
 
-## 技术架构
+## Architecture
 
-### 系统流程
+### System Flow
 
 ```
-摄像头 -> 视觉处理 -> 坐标转换 -> 运动控制 -> 机械臂
+Camera -> Vision Processing -> Coordinate Transform -> Motion Control -> Robot Arm
 ```
 
-### 坐标转换
+### Coordinate Transform
 
-| 步骤 | 坐标系 | 示例 |
-|------|--------|------|
-| 1. 像素坐标 | 图像平面 | (640, 360) |
-| 2. 相机坐标 | 相对摄像头 | (0.1, 0.05, 0.5) m |
-| 3. 世界坐标 | 相对基座 | (0.15, 0.08, 0.3) m |
+| Step | Coordinate System | Example |
+|------|-------------------|---------|
+| 1. Pixel | Image plane | (640, 360) |
+| 2. Camera | Relative to camera | (0.1, 0.05, 0.5) m |
+| 3. World | Relative to base | (0.15, 0.08, 0.3) m |
 
-## 路线图
+## Roadmap
 
-- [x] 视觉引导抓取
-- [x] 自然语言控制
-- [x] 完整文档体系
-- [ ] YOLO 目标检测
-- [ ] LeRobot 具身智能
-- [ ] Web 控制界面
+- [x] Vision-guided grasping
+- [x] Natural language control
+- [x] Complete documentation
+- [ ] YOLO object detection
+- [ ] LeRobot embodied AI
+- [ ] Web control interface
 
-## 参与贡献
+## Contributing
 
-欢迎所有形式的贡献：
+All forms of contribution are welcome:
 
-- 报告 Bug：[提交 Issue](../../issues)
-- 提建议：[参与讨论](../../discussions)
-- 贡献代码：[提交 PR](../../pulls)
+- Report bugs: [Open an Issue](../../issues)
+- Suggestions: [Join Discussion](../../discussions)
+- Code: [Submit a PR](../../pulls)
 
-## 开源协议
+## License
 
-[MIT License](LICENSE) - 可自由用于个人或商业项目。
+[MIT License](LICENSE) - Free for personal or commercial use.
 
-## 致谢
+## Acknowledgments
 
-- [Feetech](https://www.feetechrc.com/) - STS3215 舵机
-- [LeRobot](https://github.com/huggingface/lerobot) - 具身智能启发
-- 所有贡献者
+- [Feetech](https://www.feetechrc.com/) - STS3215 servos
+- [LeRobot](https://github.com/huggingface/lerobot) - Embodied AI inspiration
+- All contributors
 
 ---
 
 <div align="center">
 
-**如果这个项目对你有帮助，给个 Star 支持一下**
+**If this project helps you, please give it a Star**
 
 </div>

@@ -127,7 +127,7 @@ python examples/basic/hello_arm.py
 ```
 
 | 阶段 | 文档 | 你将学会 |
-|------|------|----------|----------|
+|------|------|----------|
 | 入门 | [环境搭建](docs/01-getting-started.md) | 配置开发环境 |
 | 基础 | [硬件连接](docs/02-hardware-setup.md) | 连接机械臂和摄像头 |
 | 进阶 | [视觉模块](docs/03-vision-pipeline.md) | 理解坐标转换原理 |
