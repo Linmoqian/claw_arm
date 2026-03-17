@@ -1,51 +1,91 @@
+<div align="center">
+  <img src="docs/refences/xiakao_logo.png" width="200" style="border-radius: 10%;">
 
-<img src="docs/refences/xiakao_logo.png" width="200" style="border-radius: 10%;">
+  # Claw Arm
 
-# 项目效果演示
+  **Intelligent Robot Arm Control System**
 
- [观看演示视频](./movie.mp4)
- 
-# 项目说明
- 
-使用openclaw/claude code控制机械臂的全流程，参考机器人三大法则设定的skill。
-# 快速开始
+  Vision-guided grasping with natural language control
+
+  [Demo Video](./movie.mp4) · [Documentation](docs/01-getting-started.md) · [中文文档](README_CN.md)
+</div>
+
+---
+
+## Features
+
+- 🎯 **Vision-Guided Grasping** - Detect and locate objects using computer vision
+- 🗣️ **Natural Language Control** - Control the arm via Claude/OpenClaw skills
+- 🔧 **Multiple Control Modes** - Interactive, teaching, calibration modes
+- 🛡️ **Safety-First Design** - Built on the Three Laws of Robotics
+
+## Hardware Requirements
+
+| Component | Model | Note |
+|-----------|-------|------|
+| Robot Arm | SO-100 (6-DOF) | Feetech STS3215 servos |
+| Camera | USB Webcam 1080p | Or RealSense D435 |
+
+## Quick Start (5 min)
 
 ```bash
-git clone https://github.com/xxx/claw_arm.git
+# Clone the repository
+git clone https://github.com/your-username/claw_arm.git
 cd claw_arm
-pip install -r requirement.txt
-claude  # 或 openclaw
+
+# Create environment
+conda env create -f environment.yml
+conda activate claw_arm
+
+# Test hardware connection
+python script/1.3test_motors.py
+python CV/1_camera_test.py
+
+# Run your first example
+python examples/basic/hello_arm.py
 ```
 
-将 skills/nature_arm 粘贴到对应的skills文件夹下
-输入：`/nature_arm 跳个舞`
+## Documentation
 
+| Stage | Document | Goal |
+|-------|----------|------|
+| Setup | [Getting Started](docs/01-getting-started.md) | Environment ready |
+| Hardware | [Hardware Setup](docs/02-hardware-setup.md) | Arm connected |
+| Vision | [Vision Pipeline](docs/03-vision-pipeline.md) | Understand coordinates |
+| Control | [Arm Control](docs/04-arm-control.md) | Master SDK usage |
+| Grasp | [First Grasp](docs/06-first-grasp.md) | Complete workflow |
 
-# 实现流程
+## Project Structure
 
-1.找到SDK
-2.编写技能脚本
-3.让openclaw识别到技能
-4.调用技能
-5.配置飞书
-6.自然聊天
+```
+claw_arm/
+├── CV/           # Computer vision module
+├── SDK/          # SCServo SDK wrapper
+├── script/       # Debug and utility scripts
+├── Joints/       # Joint control utilities
+├── skills/       # Claude/OpenClaw skills
+├── examples/     # Example code for beginners
+├── config/       # Configuration templates
+└── docs/         # Documentation
+```
 
-# 方案
-1.传统几何方案（nature_arm）
-![alt text](image.png)
-![alt text](image-1.png)
-2.具身智能方案（未来将基于lerobot实现）
+## Architecture
 
-# 项目目录
+### Traditional Approach (Current)
 
-- docs/      存放开发文档和规范
-- skills/    存放skills（claude code和openclaw）
-- script/    存放调试脚本
-- SDK/       存放电机的SDK
-- CV/        存放与视觉相关的代码
-- Joints/    存放与关节控制的代码
-- SO100_Description/  存放与机械臂相关的描述文件
+```
+Camera → Vision Processing → Coordinate Transform → Motion Control → Robot Arm
+```
 
-# 注意事项
+### Embodied AI (Future)
 
-- 神奇的openclaw的skills和常见的skills规格不太一样
+Based on [LeRobot](https://github.com/huggingface/lerobot) framework with VLA models.
+
+## License
+
+MIT License - feel free to use for personal or commercial projects.
+
+## Acknowledgments
+
+- [Feetech](https://www.feetechrc.com/) for STS3215 servos
+- [LeRobot](https://github.com/huggingface/lerobot) for robotics framework inspiration
