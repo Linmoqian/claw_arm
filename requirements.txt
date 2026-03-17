@@ -1,0 +1,8 @@
+# 核心依赖
+opencv-python>=4.8.0
+numpy>=1.24.0
+pyserial>=3.5
+
+# 可选依赖（用于 AI 功能）
+# openai>=1.0.0
+# ultralytics>=8.0.0
