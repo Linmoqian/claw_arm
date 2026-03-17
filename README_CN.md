@@ -8,11 +8,10 @@
 
   <i>看到 - 理解 - 行动</i>
 
+  <img src="movie.gif" width="100%">
+
   <p>
 
-  <a href="movie.mp4">
-    <img src="https://img.shields.io/badge/Demo-观看演示-FF6B6B?style=for-the-badge" alt="Demo">
-  </a>
   <a href="docs/01-getting-started.md">
     <img src="https://img.shields.io/badge/Docs-快速开始-4ECDC4?style=for-the-badge" alt="Docs">
   </a>
