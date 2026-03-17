@@ -1,0 +1,11 @@
+name: claw_arm
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+    - opencv-python>=4.8.0
+    - numpy>=1.24.0
+    - pyserial>=3.5
