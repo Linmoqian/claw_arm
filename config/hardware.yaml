@@ -1,0 +1,33 @@
+# 硬件配置模板
+# 复制此文件为 hardware.local.yaml 并修改为你的实际配置
+
+serial:
+  port: "COM3"        # Windows: COM3, Linux: /dev/ttyUSB0
+  baudrate: 1000000   # 波特率，SO100 默认 1M
+
+motors:
+  # 电机 ID 配置 (SO100 默认配置)
+  - id: 1
+    name: "base"        # 底座旋转
+    min: 0
+    max: 4095
+  - id: 2
+    name: "shoulder"    # 肩关节
+    min: 0
+    max: 4095
+  - id: 3
+    name: "elbow"       # 肘关节
+    min: 0
+    max: 4095
+  - id: 4
+    name: "wrist_pitch" # 腕俯仰
+    min: 0
+    max: 4095
+  - id: 5
+    name: "wrist_roll"  # 腕旋转
+    min: 0
+    max: 4095
+  - id: 6
+    name: "gripper"     # 夹爪
+    min: 0
+    max: 4095
