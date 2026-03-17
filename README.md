@@ -10,8 +10,8 @@
 
   <p>
 
-  <a href="./movie.mp4">
-    <img src="https://img.shields.io/badge/Demo-Watch-FF6B6B?style=for-the-badge" alt="Demo">
+  <a href="movie.mp4">
+    <img src="https://img.shields.io/badge/Demo-Watch_Video-FF6B6B?style=for-the-badge" alt="Demo">
   </a>
   <a href="docs/01-getting-started.md">
     <img src="https://img.shields.io/badge/Docs-Get_Started-4ECDC4?style=for-the-badge" alt="Docs">

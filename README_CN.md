@@ -10,7 +10,7 @@
 
   <p>
 
-  <a href="./movie.mp4">
+  <a href="movie.mp4">
     <img src="https://img.shields.io/badge/Demo-观看演示-FF6B6B?style=for-the-badge" alt="Demo">
   </a>
   <a href="docs/01-getting-started.md">
