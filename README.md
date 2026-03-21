@@ -88,7 +88,7 @@ Built on the Three Laws of Robotics:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/claw_arm.git
+git clone https://github.com/Linmoqian/claw_arm.git
 cd claw_arm
 
 # 2. Setup environment
