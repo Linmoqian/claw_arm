@@ -86,7 +86,7 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-username/claw_arm.git
+git clone https://github.com/Linmoqian/claw_arm.git
 cd claw_arm
 
 # 2. 一键配置环境
